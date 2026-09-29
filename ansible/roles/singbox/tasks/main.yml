@@ -1,0 +1,70 @@
+---
+# --------------------------------------------------------------------
+# 1. Directories & Installation Tools
+# --------------------------------------------------------------------
+- name: Ensure sing-box configuration and state directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /etc/sing-box
+    - /var/lib/sing-box
+
+- name: Deploy sing-box-lx updater script
+  ansible.builtin.template:
+    src: update-sing-box-lx.sh.j2
+    dest: /usr/local/bin/update-sing-box-lx
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure APT hook to trigger sing-box-lx updater during apt upgrade
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/99-sing-box-upgrade
+    content: |
+      // Automatically check and update sing-box-lx on package upgrades
+      DPkg::Post-Invoke { "[ -x /usr/local/bin/update-sing-box-lx ] && /usr/local/bin/update-sing-box-lx || true"; };
+    owner: root
+    group: root
+    mode: '0644'
+
+# --------------------------------------------------------------------
+# 2. Binary Deployment (Idempotent via 'creates')
+# --------------------------------------------------------------------
+- name: Install initial sing-box-lx binary if not present
+  ansible.builtin.command: /usr/local/bin/update-sing-box-lx
+  args:
+    creates: /usr/bin/sing-box
+
+# --------------------------------------------------------------------
+# 3. Configuration & Systemd Service
+# --------------------------------------------------------------------
+- name: Deploy sing-box config.json with syntax validation
+  ansible.builtin.template:
+    src: config.json.j2
+    dest: /etc/sing-box/config.json
+    owner: root
+    group: root
+    mode: '0600'
+    validate: '/usr/bin/sing-box check -c %s' # Validates JSON rules before applying!
+  diff: false # Strictly hide decrypted proxy passwords from logs
+  notify: Restart sing-box service
+
+- name: Deploy sing-box systemd service unit
+  ansible.builtin.template:
+    src: sing-box.service.j2
+    dest: /etc/systemd/system/sing-box.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart sing-box service
+
+- name: Ensure sing-box service is enabled and started
+  ansible.builtin.systemd:
+    name: sing-box
+    state: started
+    enabled: true
+    daemon_reload: true

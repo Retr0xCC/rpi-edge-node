@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ========================================================
+
+# Automated Updater for sing-box-lx (Triggered by APT Hooks)
+# ========================================================
+
+
+echo "==> [sing-box-lx] Checking for upstream releases on GitHub..."
+
+# Fetch latest release data from GitHub API
+RELEASE_METADATA=$(curl -sSL -H "Accept: application/vnd.github+json" https://api.github.com/repos/Leadaxe/sing-box-lx/releases/latest || true)
+
+if [ -z "${RELEASE_METADATA}" ]; then
+  echo "==> [sing-box-lx] Warning: Failed to reach GitHub API. Skipping update."
+  exit 0
+fi
+
+# Parse tag name and ARM64 asset download URL using built-in python3
+LATEST_TAG=$(echo "${RELEASE_METADATA}" | python3 -c '
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    print(data.get("tag_name", ""))
+except Exception:
+    pass
+')
+
+DOWNLOAD_URL=$(echo "${RELEASE_METADATA}" | python3 -c '
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    assets = data.get("assets", [])
+    print(next((a["browser_download_url"] for a in assets if a["name"].endswith("linux-arm64.tar.gz")), ""))
+except Exception:
+    pass
+')
+
+if [ -z "${LATEST_TAG}" ] || [ -z "${DOWNLOAD_URL}" ]; then
+  echo "==> [sing-box-lx] Warning: Could not parse release assets. Skipping."
+  exit 0
+fi
+
+# Compare installed version with latest upstream tag
+CURRENT_VERSION=$(sing-box version 2>/dev/null | head -n 1 | awk '{print $3}' || echo "none")
+CLEAN_TAG="${LATEST_TAG#v}"
+
+if [ "${CURRENT_VERSION}" = "${CLEAN_TAG}" ]; then
+  echo "==> [sing-box-lx] Up to date (version ${CURRENT_VERSION})."
+  exit 0
+fi
+
+echo "==> [sing-box-lx] New release found: ${CLEAN_TAG} (current: ${CURRENT_VERSION}). Upgrading..."
+
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "${TMP_DIR}"' EXIT
+
+# Download and unpack new binary
+curl -sSL "${DOWNLOAD_URL}" | tar -xz -C "${TMP_DIR}" --strip-components=1
+install -m 755 "${TMP_DIR}/sing-box" /usr/bin/sing-box
+
+# Restart systemd service if running
+if systemctl is-active --quiet sing-box; then
+  echo "==> [sing-box-lx] Restarting sing-box service..."
+  systemctl restart sing-box
+fi
+
+echo "==> [sing-box-lx] Successfully upgraded to ${CLEAN_TAG}!"

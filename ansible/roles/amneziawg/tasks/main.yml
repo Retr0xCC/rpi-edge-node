@@ -1,0 +1,73 @@
+---
+# --------------------------------------------------------------------
+# 1. Kernel Headers & Prerequisite Tools
+# --------------------------------------------------------------------
+- name: Install kernel headers matching current running kernel
+  ansible.builtin.apt:
+    name: "linux-headers-{{ ansible_facts['kernel'] }}"
+    state: present
+
+- name: Ensure apt keyring directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# --------------------------------------------------------------------
+# 2. Amnezia PPA Repository Setup
+# --------------------------------------------------------------------
+- name: Download Amnezia PPA GPG signing key
+  ansible.builtin.get_url:
+    url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x75C9DD72C799870E310542E24166F2C257290828"
+    dest: /etc/apt/keyrings/amnezia.asc
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Configure Amnezia PPA repository source list
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/amnezia.list
+    content: |
+      deb [signed-by=/etc/apt/keyrings/amnezia.asc] https://ppa.launchpadcontent.net/amnezia/ppa/ubuntu focal main
+      deb-src [signed-by=/etc/apt/keyrings/amnezia.asc] https://ppa.launchpadcontent.net/amnezia/ppa/ubuntu focal main
+    owner: root
+    group: root
+    mode: '0644'
+
+# --------------------------------------------------------------------
+# 3. Package Installation & DKMS Module Build
+# --------------------------------------------------------------------
+- name: Install AmneziaWG DKMS kernel module and CLI tools
+  ansible.builtin.apt:
+    name: amneziawg
+    state: present
+    update_cache: true
+
+# --------------------------------------------------------------------
+# 4. Configuration Deployment & Service Management
+# --------------------------------------------------------------------
+- name: Ensure AmneziaWG configuration directory exists
+  ansible.builtin.file:
+    path: /etc/amnezia/amneziawg
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Deploy awg0.conf configuration template
+  ansible.builtin.template:
+    src: awg0.conf.j2
+    dest: "/etc/amnezia/amneziawg/{{ awg_interface_name }}.conf"
+    owner: root
+    group: root
+    mode: '0600'
+  diff: false # Protect private key from leaking into console logs
+  notify: Restart awg-quick service
+
+- name: Ensure awg-quick service is enabled and running
+  ansible.builtin.systemd:
+    name: "awg-quick@{{ awg_interface_name }}"
+    state: started
+    enabled: true

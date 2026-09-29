@@ -1,0 +1,36 @@
+# ========================================================
+# AmneziaWG Kernel Interface Configuration (Managed by Ansible)
+# ========================================================
+
+
+[Interface]
+PrivateKey = {{ vault_awg_server_private_key }}
+Address = {{ awg_subnet_cidr }}, {{ awg_ipv6_subnet_cidr }}
+ListenPort = {{ awg_listen_port }}
+MTU = {{ awg_mtu }}
+
+# Obfuscation parameters
+Jc = {{ vault_awg_jc }}
+Jmin = {{ vault_awg_jmin }}
+Jmax = {{ vault_awg_jmax }}
+S1 = {{ vault_awg_s1 }}
+S2 = {{ vault_awg_s2 }}
+S3 = {{ vault_awg_s3 }}
+S4 = {{ vault_awg_s4 }}
+H1 = {{ vault_awg_h1 }}
+H2 = {{ vault_awg_h2 }}
+H3 = {{ vault_awg_h3 }}
+H4 = {{ vault_awg_h4 }}
+
+# Timing & Handshake obfuscation
+RekeyAfterTime = {{ vault_awg_rekey_after_time }}
+RekeyTimeout = {{ vault_awg_rekey_timeout }}
+RejectAfterTime = {{ vault_awg_reject_after_time }}
+KeepaliveTimeout = {{ vault_awg_keepalive_timeout }}
+MaxHandshakeAttempts = {{ vault_awg_max_handshake_attempts }}
+ContentPaddingAddition = {{ vault_awg_content_padding_addition }}
+
+[Peer]
+# Name = mobile-client
+PublicKey = {{ vault_awg_peer1_public_key }}
+AllowedIPs = {{ vault_awg_peer1_ip }}, {{ vault_awg_peer1_ipv6 }}

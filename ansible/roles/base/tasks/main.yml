@@ -1,0 +1,350 @@
+---
+# --------------------------------------------------------------------
+# 1. Base Packages Installation
+# --------------------------------------------------------------------
+- name: Update apt repository cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install required baseline tools and packages
+  ansible.builtin.apt:
+    name: "{{ base_packages }}"
+    state: present
+
+# --------------------------------------------------------------------
+# 2. System Timezone Configuration
+# --------------------------------------------------------------------
+- name: Configure system timezone
+  community.general.timezone:
+    name: "{{ system_timezone }}"
+
+# --------------------------------------------------------------------
+# 3. Kernel & System Tuning (sysctl)
+# --------------------------------------------------------------------
+- name: Deploy consolidated sysctl configuration
+  ansible.builtin.template:
+    src: 99-edge-gateway.conf.j2
+    dest: /etc/sysctl.d/99-edge-gateway.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload sysctl
+
+# --------------------------------------------------------------------
+# 4. Native DietPi ZRAM Swap Configuration
+# --------------------------------------------------------------------
+- name: Check active swap devices
+  ansible.builtin.command: swapon --show=NAME --noheadings
+  register: base_active_swap
+  changed_when: false
+  check_mode: false
+
+- name: Enable ZRAM swap using DietPi native utility
+  ansible.builtin.command: /boot/dietpi/func/dietpi-set_swapfile zram
+  when: "'/dev/zram0' not in base_active_swap.stdout"
+  changed_when: true
+
+# --------------------------------------------------------------------
+# 5. DNS Configuration (Exclusive upstream resolver)
+# --------------------------------------------------------------------
+- name: Stop, disable, and mask systemd-resolved to prevent port 53 conflicts
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: stopped
+    enabled: false
+    masked: true
+  failed_when: false
+
+- name: Check if /etc/resolv.conf is a symlink
+  ansible.builtin.stat:
+    path: /etc/resolv.conf
+  register: base_resolv_file
+
+- name: Remove systemd-resolved symlink from /etc/resolv.conf
+  ansible.builtin.file:
+    path: /etc/resolv.conf
+    state: absent
+  when: base_resolv_file.stat.islnk is defined and base_resolv_file.stat.islnk
+
+- name: Deploy static resolv.conf with local DNS resolver
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    content: |
+      # Dedicated upstream DNS server managed by Ansible
+      nameserver {{ vault_primary_dns_server }}
+    owner: root
+    group: root
+    mode: '0644'
+
+# --------------------------------------------------------------------
+# 6. Native DietPi NTP Gateway Configuration
+# --------------------------------------------------------------------
+- name: Configure DietPi to dynamically use active network gateway for NTP
+  ansible.builtin.lineinfile:
+    path: /boot/dietpi.txt
+    regexp: '^#?CONFIG_NTP_MIRROR='
+    line: 'CONFIG_NTP_MIRROR=Gateway'
+    state: present
+
+- name: Ensure systemd-timesyncd service is enabled and running
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    state: started
+    enabled: true
+
+# --------------------------------------------------------------------
+# 7. SMB / CIFS Network Storage Mount (systemd-automount)
+# --------------------------------------------------------------------
+- name: Install CIFS client utilities
+  ansible.builtin.apt:
+    name: cifs-utils
+    state: present
+  when: smb_mount_enabled
+
+- name: Ensure local mount point directory exists
+  ansible.builtin.file:
+    path: "{{ smb_mount_point }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: smb_mount_enabled
+
+- name: Protect unmounted directory from writes (chattr +i)
+  ansible.builtin.file:
+    path: "{{ smb_mount_point }}"
+    attributes: +i
+  when:
+    - smb_mount_enabled
+    - not (ansible_facts.mounts | default([]) | selectattr('mount', 'equalto', smb_mount_point) | list)
+
+- name: Deploy secure SMB credentials file
+  ansible.builtin.copy:
+    dest: /etc/smbcredentials
+    content: |
+      username={{ vault_smb_username }}
+      password={{ vault_smb_password }}
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: true
+  when: smb_mount_enabled
+
+- name: Configure CIFS mount with systemd-automount in /etc/fstab
+  ansible.posix.mount:
+    path: "{{ smb_mount_point }}"
+    src: "//{{ vault_smb_server_ip }}/{{ vault_smb_share_name }}"
+    fstype: cifs
+    opts: "{{ smb_mount_options | join(',') }}"
+    state: present # Registers in fstab and triggers systemd without synchronous mount hang
+  when: smb_mount_enabled
+
+- name: Ensure systemd-automount service for CIFS storage is started
+  ansible.builtin.systemd:
+    name: "{{ (smb_mount_point | regex_replace('^/', '') | regex_replace('/$', '') | regex_replace('/', '-')) }}.automount"
+    state: started
+    daemon_reload: true
+  when: smb_mount_enabled
+
+- name: Trigger CIFS automount to verify network share accessibility
+  ansible.builtin.command:
+    cmd: "ls {{ smb_mount_point }}"
+  changed_when: false
+  when: smb_mount_enabled
+
+# --------------------------------------------------------------------
+# 8. OpenSSH Server Configuration & Inbound Keys
+# --------------------------------------------------------------------
+- name: Ensure authorized SSH keys are deployed for dietpi user
+  ansible.posix.authorized_key:
+    user: dietpi
+    state: present
+    key: "{{ vault_ssh_authorized_keys | join('\n') }}"
+  no_log: true
+
+- name: Deploy hardened sshd drop-in configuration
+  ansible.builtin.template:
+    src: 99-hardened.conf.j2
+    dest: /etc/ssh/sshd_config.d/99-hardened.conf
+    owner: root
+    group: root
+    mode: '0600'
+    validate: '/usr/sbin/sshd -t -f %s'
+  notify: Restart ssh daemon
+
+# --------------------------------------------------------------------
+# 9. Outbound SSH Client Credentials (RPi -> Desktop PC)
+# --------------------------------------------------------------------
+- name: Deploy outbound private SSH key for main-pc
+  ansible.builtin.copy:
+    dest: /home/dietpi/.ssh/{{ main_pc_ssh_alias }}
+    content: "{{ vault_main_pc_ssh_private_key }}"
+    owner: dietpi
+    group: dietpi
+    mode: '0600'
+  no_log: true
+
+- name: Deploy outbound public SSH key for main-pc
+  ansible.builtin.copy:
+    dest: /home/dietpi/.ssh/{{ main_pc_ssh_alias }}.pub
+    content: "{{ vault_main_pc_ssh_public_key }}\n"
+    owner: dietpi
+    group: dietpi
+    mode: '0644'
+
+- name: Deploy OpenSSH client configuration (~/.ssh/config)
+  ansible.builtin.template:
+    src: ssh_client_config.j2
+    dest: /home/dietpi/.ssh/config
+    owner: dietpi
+    group: dietpi
+    mode: '0600'
+
+# --------------------------------------------------------------------
+# 10. User Shell Environment (.bashrc)
+# --------------------------------------------------------------------
+- name: Deploy custom .bashrc for dietpi user
+  ansible.builtin.template:
+    src: bashrc.j2
+    dest: /home/dietpi/.bashrc
+    owner: dietpi
+    group: dietpi
+    mode: '0644'
+
+# --------------------------------------------------------------------
+# 11. Firewall Configuration (UFW)
+# --------------------------------------------------------------------
+- name: Ensure UFW firewall package is installed
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+  when: ufw_enabled
+
+- name: Enable packet forwarding in UFW configuration
+  ansible.builtin.lineinfile:
+    path: /etc/default/ufw
+    regexp: '^DEFAULT_FORWARD_POLICY='
+    line: 'DEFAULT_FORWARD_POLICY="ACCEPT"'
+    state: present
+  when: ufw_enabled
+  notify: Reload ufw
+
+- name: Enable IPv4 forwarding in UFW sysctl configuration
+  ansible.builtin.lineinfile:
+    path: /etc/ufw/sysctl.conf
+    regexp: '^#?net/ipv4/ip_forward='
+    line: 'net/ipv4/ip_forward=1'
+    state: present
+  when: ufw_enabled
+  notify: Reload ufw
+
+- name: Configure loose reverse path filtering in UFW sysctl configuration
+  ansible.builtin.lineinfile:
+    path: /etc/ufw/sysctl.conf
+    regexp: '^#?net/ipv4/conf/{{ item }}/rp_filter='
+    line: 'net/ipv4/conf/{{ item }}/rp_filter=2'
+    state: present
+  loop:
+    - all
+    - default
+  when: ufw_enabled
+  notify: Reload ufw
+
+- name: Configure default incoming, outgoing and routed UFW policies
+  community.general.ufw:
+    direction: "{{ item.direction }}"
+    default: "{{ item.policy }}"
+  loop:
+    - { direction: 'incoming', policy: "{{ ufw_default_incoming_policy }}" }
+    - { direction: 'outgoing', policy: "{{ ufw_default_outgoing_policy }}" }
+    - { direction: 'routed', policy: 'allow' }
+  when: ufw_enabled
+  notify: Reload ufw
+
+- name: Configure NAT masquerade rules in UFW before.rules
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/before.rules
+    insertbefore: '^\*filter'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: NAT rules"
+    block: |
+      *nat
+      :POSTROUTING ACCEPT [0:0]
+      -A POSTROUTING -s 192.168.0.0/16 ! -d 192.168.0.0/16 -o eth0 -j MASQUERADE
+      -A POSTROUTING -s 10.9.9.0/24 -o eth0 -j MASQUERADE
+      COMMIT
+    state: present
+  when: ufw_enabled
+  notify: Reload ufw
+
+- name: Allow traffic for AmneziaWG and sing-box in UFW before.rules
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/before.rules
+    insertafter: '^# End required lines'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: VPN and sing-box interfaces"
+    block: |
+      # Allow local incoming traffic
+      -A ufw-before-input -i eth0 -s 192.168.0.0/16 -j ACCEPT
+      -A ufw-before-input -i awg0 -j ACCEPT
+      -A ufw-before-input -i tun0 -j ACCEPT
+
+      # Allow forwarded traffic
+      -A ufw-before-forward -i eth0 -s 192.168.0.0/16 -j ACCEPT
+      -A ufw-before-forward -i awg0 -j ACCEPT
+      -A ufw-before-forward -i tun0 -j ACCEPT
+
+      # TCP MSS Clamping for IPv4 (PMTU fix)
+      -A ufw-before-forward -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+    state: present
+  when: ufw_enabled
+  notify: Reload ufw
+
+- name: Allow traffic for AmneziaWG and sing-box in UFW before6.rules
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/before6.rules
+    insertafter: '^# End required lines'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: VPN and sing-box interfaces (IPv6)"
+    block: |
+      # Allow local incoming IPv6 traffic
+      -A ufw6-before-input -i eth0 -s fd00::/64 -j ACCEPT
+      -A ufw6-before-input -i eth0 -s fe80::/10 -j ACCEPT
+      -A ufw6-before-input -i tun0 -j ACCEPT
+      -A ufw6-before-input -i awg0 -j ACCEPT
+
+      # Allow forwarded IPv6 traffic
+      -A ufw6-before-forward -i eth0 -s fd00::/64 -j ACCEPT
+      -A ufw6-before-forward -i tun0 -j ACCEPT
+      -A ufw6-before-forward -i awg0 -j ACCEPT
+
+      # TCP MSS Clamping for IPv6 (PMTU fix)
+      -A ufw6-before-forward -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+    state: present
+  when: ufw_enabled
+  notify: Reload ufw
+
+- name: Configure allowed incoming firewall ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port | string }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment }}"
+  loop: "{{ ufw_allowed_rules }}"
+  when: ufw_enabled
+
+- name: Ensure UFW is enabled and active
+  community.general.ufw:
+    state: enabled
+  when: ufw_enabled
+
+# --------------------------------------------------------------------
+# 12. Persistent Static IPv6 Network Configuration
+# --------------------------------------------------------------------
+- name: Configure persistent static IPv6 address for eth0 interface
+  ansible.builtin.blockinfile:
+    path: /etc/network/interfaces
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: eth0 IPv6 static configuration"
+    block: |
+      iface eth0 inet6 static
+          address fd00::1
+          netmask 64
+    state: present

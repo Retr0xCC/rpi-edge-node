@@ -1,0 +1,5 @@
+---
+- name: Restart awg-quick service
+  ansible.builtin.systemd:
+    name: "awg-quick@{{ awg_interface_name }}"
+    state: restarted
