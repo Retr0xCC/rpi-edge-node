@@ -1,0 +1,20 @@
+---
+- name: Deploy and configure Raspberry Pi Edge Gateway & Services
+  hosts: gateway
+  become: true
+
+  roles:
+    - role: base
+      tags: [base, system]
+
+    - role: amneziawg
+      tags: [gateway, network, awg]
+
+    - role: singbox
+      tags: [gateway, network, singbox]
+
+    - role: docker
+      tags: [docker]
+
+    - role: minecraft
+      tags: [minecraft, apps]

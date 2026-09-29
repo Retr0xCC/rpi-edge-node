@@ -1,0 +1,10 @@
+# ========================================================
+# OpenSSH Client Configuration for dietpi user (Managed by Ansible)
+# ========================================================
+
+
+Host {{ main_pc_ssh_alias }}
+  HostName {{ vault_main_pc_host_ip }}
+  User {{ vault_main_pc_user }}
+  IdentityFile ~/.ssh/{{ main_pc_ssh_alias }}
+  IdentitiesOnly yes

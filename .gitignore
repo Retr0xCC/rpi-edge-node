@@ -1,0 +1,107 @@
+# ========================================================
+# 1. Ansible runtime & caches
+# ========================================================
+.ansible/
+*.retry
+ansible.log
+*.log
+ansible.local.cfg
+
+# ========================================================
+# 2. Ansible Vault & Secret boundaries
+# ========================================================
+# Vault password files and script-based resolvers
+**/.vault_pass*
+**/.vault-password*
+*.vault_password
+
+# Private keys, certificates and credentials
+*.key
+*.pem
+*.pfx
+*.p12
+*.pkcs12
+*.crt
+*.csr
+id_rsa*
+id_ed25519*
+known_hosts*
+
+# Environment files and directories with plaintext secrets
+.env
+.env.*
+*.env
+!*.env.j2
+secrets/
+secrets.yml
+private/
+credentials/
+
+# ========================================================
+# 3. Local inventory & development overrides
+# ========================================================
+inventory.local*
+hosts.local*
+*.local.ini
+local_inventory/
+
+# ========================================================
+# 4. Linters, Testing & CI tools
+# ========================================================
+.cache/
+.ansible-lint
+.ansible-lint-cache/
+.yamllint.cache
+.molecule/
+
+# ========================================================
+# 5. Python & Bytecode
+# ========================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# ========================================================
+# 6. OS & Editors
+# ========================================================
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# Editors & IDEs (vim, emacs, jetbrains)
+*.swp
+*.swo
+*~
+.*.swp
+.idea/
+
+# VS Code (preserve team recommendations, ignore local state)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# ========================================================
+# 7. Build & Distribution artifacts
+# ========================================================
+build_output/
+package/
+dist/
+build/
+*.tar.gz
+*.sha256
+*.egg-info/

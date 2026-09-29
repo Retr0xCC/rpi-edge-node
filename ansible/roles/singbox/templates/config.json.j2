@@ -1,0 +1,321 @@
+{
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "local",
+        "type": "udp",
+        "server": "{{ vault_singbox_dns_local }}",
+        "server_port": 53
+      },
+      {
+        "tag": "remote",
+        "type": "udp",
+        "server": "{{ singbox_dns_remote }}",
+        "server_port": 53,
+        "detour": "proxy"
+      },
+      {
+        "tag": "smart",
+        "type": "udp",
+        "server": "{{ vault_singbox_dns_smart }}",
+        "server_port": 53
+      }
+    ],
+    "rules": [
+      {
+        "domain_suffix": "ntc.party",
+        "query_type": ["A"],
+        "action": "predefined",
+        "rcode": "NOERROR"
+      },
+      {
+        "domain_suffix": "ntc.party",
+        "server": "remote"
+      },
+      {
+        "query_type": ["AAAA"],
+        "action": "predefined",
+        "rcode": "NOERROR"
+      },
+      {
+        "domain_suffix": [
+          "{{ vault_base_domain }}",
+          ".home",
+          ".lan",
+          ".local"
+        ],
+        "server": "local"
+      },
+      {
+        "rule_set": "geosite-youtube",
+        "server": "local"
+      },
+      {
+        "rule_set": "geosite-google",
+        "server": "smart"
+      },
+      {
+        "rule_set": [
+          "geosite-ru-bundle",
+          "geosite-spotify",
+          "geosite-roblox",
+          "geosite-telegram"
+        ],
+        "server": "remote"
+      },
+      {
+        "action": "evaluate",
+        "server": "remote"
+      },
+      {
+        "match_response": true,
+        "rule_set": "geoip-google",
+        "server": "smart"
+      },
+      {
+        "match_response": true,
+        "rule_set": [
+          "geoip-roblox",
+          "geoip-telegram"
+        ],
+        "server": "remote"
+      },
+      {
+        "match_response": true,
+        "rule_set": "geoip-rknasnblock",
+        "server": "local"
+      }
+    ],
+    "cache_capacity": 4096,
+    "final": "local"
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun0",
+      "address": [
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "mtu": 9000,
+      "auto_route": true,
+      "auto_redirect": true,
+      "strict_route": true,
+      "route_exclude_address": [
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "fd00::/8",
+        "fe80::/10"
+      ],
+      "stack": "system"
+    },
+    {
+      "type": "direct",
+      "tag": "dns-in",
+      "listen": "::",
+      "listen_port": 53
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "hysteria2",
+      "tag": "proxy",
+      "server": "{{ vault_singbox_hy2_server }}",
+      "server_port": 443,
+      "up_mbps": 100,
+      "down_mbps": 100,
+      "password": "{{ vault_singbox_hy2_password }}",
+      "obfs": {
+        "type": "salamander",
+        "password": "{{ vault_singbox_hy2_obfs_password }}"
+      },
+      "tls": {
+        "enabled": true,
+        "server_name": "{{ vault_singbox_hy2_server_name }}",
+        "alpn": "h3"
+      }
+    },
+    {
+      "type": "masque",
+      "tag": "proxy-warp",
+      "server": "{{ vault_singbox_warp_endpoint_ip }}",
+      "server_port": 443,
+      "profile": "cloudflare",
+      "vhttp": "h3",
+      "tls": {
+        "enabled": true,
+        "server_name": "dl.google.com"
+      },
+      "private_key": "{{ vault_singbox_warp_proxy_privkey }}",
+      "public_key": "{{ vault_singbox_warp_proxy_pubkey }}",
+      "ip": "{{ vault_singbox_warp_direct_ip }}",
+      "ipv6": "{{ vault_singbox_warp_direct_ipv6 }}",
+      "mtu": 1280,
+      "detour": "proxy"
+    },
+    {
+      "type": "masque",
+      "tag": "direct-warp",
+      "server": "{{ vault_singbox_warp_endpoint_ip }}",
+      "server_port": 443,
+      "profile": "cloudflare",
+      "vhttp": "h3",
+      "tls": {
+        "enabled": true,
+        "server_name": "dl.google.com"
+      },
+      "private_key": "{{ vault_singbox_warp_direct_privkey }}",
+      "public_key": "{{ vault_singbox_warp_direct_pubkey }}",
+      "ip": "{{ vault_singbox_warp_direct_ip }}",
+      "ipv6": "{{ vault_singbox_warp_direct_ipv6 }}",
+      "mtu": 1280
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ],
+  "http_clients": [
+    {
+      "tag": "rules-client",
+      "detour": "proxy"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "protocol": "dns",
+        "action": "hijack-dns"
+      },
+      {
+        "ip_is_private": true,
+        "outbound": "direct"
+      },
+      {
+        "rule_set": "geosite-ads",
+        "action": "reject"
+      },
+      {
+        "domain_suffix": "ntc.party",
+        "outbound": "direct-warp"
+      },
+      {
+        "rule_set": "geosite-youtube",
+        "outbound": "direct-warp"
+      },
+      {
+        "rule_set": "geosite-spotify",
+        "outbound": "proxy-warp"
+      },
+      {
+        "rule_set": [
+          "geosite-google",
+          "geoip-google"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "rule_set": [
+          "geosite-ru-bundle",
+          "geosite-roblox",
+          "geoip-roblox",
+          "geosite-telegram",
+          "geoip-telegram"
+        ],
+        "outbound": "proxy"
+      },
+      {
+        "rule_set": "geoip-rknasnblock",
+        "outbound": "direct-warp"
+      }
+    ],
+    "final": "direct",
+    "default_domain_resolver": "local",
+    "auto_detect_interface": true,
+    "default_http_client": "rules-client",
+    "rule_set": [
+      {
+        "type": "remote",
+        "tag": "geosite-ads",
+        "format": "binary",
+        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/geo/geosite/category-ads-all.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "geosite-ru-bundle",
+        "format": "binary",
+        "url": "https://github.com/legiz-ru/sb-rule-sets/raw/main/ru-bundle.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "geoip-rknasnblock",
+        "format": "binary",
+        "url": "https://github.com/legiz-ru/sb-rule-sets/raw/main/rknasnblock.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "geosite-google",
+        "format": "binary",
+        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/geo/geosite/google.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "geoip-google",
+        "format": "binary",
+        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/geo/geoip/google.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "geosite-youtube",
+        "format": "binary",
+        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/geo/geosite/youtube.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "geosite-spotify",
+        "format": "binary",
+        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/geo/geosite/spotify.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "geosite-roblox",
+        "format": "binary",
+        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/geo/geosite/roblox.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "geoip-roblox",
+        "format": "binary",
+        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/asn/AS22697.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "geosite-telegram",
+        "format": "binary",
+        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/geo/geosite/telegram.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "geoip-telegram",
+        "format": "binary",
+        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/geo/geoip/telegram.srs"
+      }
+    ]
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "store_dns": true,
+      "path": "./cache.db"
+    }
+  }
+}

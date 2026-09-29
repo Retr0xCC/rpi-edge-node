@@ -1,0 +1,43 @@
+services:
+  mc:
+    image: itzg/minecraft-server:${IZTG_MC_VERSION}
+    container_name: mc-server
+    user: "${PUID}:${PGID}"
+    stop_grace_period: 30s
+    restart: unless-stopped
+    network_mode: host
+    env_file: mc.env
+    environment:
+      UID: "${PUID}"
+      GID: "${PGID}"
+      TZ: "${TZ}"
+      ENABLE_RCON: "true"
+      RCON_PASSWORD: "${MC_RCON_PASSWORD}"
+      RCON_PORT: "${MC_RCON_PORT}"
+    volumes:
+      - ./minecraft-data:/data
+    healthcheck:
+      disable: true
+      test: ["CMD", "mc-monitor", "status", "--host", "127.0.0.1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backup:
+    image: itzg/mc-backup:${IZTG_MC_BACKUP_VERSION}
+    container_name: mc-backup
+    user: "${PUID}:${PGID_DIETPI}"
+    stop_grace_period: 30s
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - mc
+    env_file: mc-backup.env
+    environment:
+      TZ: "${TZ}"
+      RCON_HOST: "127.0.0.1"
+      RCON_PORT: "${MC_RCON_PORT}"
+      RCON_PASSWORD: "${MC_RCON_PASSWORD}"
+    volumes:
+      - ./minecraft-data:/data:ro
+      - {{ mc_backup_destination }}:/backups

@@ -1,0 +1,95 @@
+name: Build and Release sing-box-lx
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch or tag of Leadaxe/sing-box-lx'
+        required: true
+        default: 'lx'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build binary (${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [arm64, amd64]
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          repository: 'Leadaxe/sing-box-lx'
+          ref: ${{ github.event.inputs.branch }}
+          submodules: 'recursive'
+          fetch-depth: 1
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+
+      - name: Build binary
+        run: |
+          # Extract build tags from Makefile.lx
+          BUILD_TAGS=$(make -f Makefile.lx lx-print-tags)
+          echo "Building for ${{ matrix.goarch }} with tags: $BUILD_TAGS"
+
+          mkdir -p package
+          # Cross-compile for target architecture
+          CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.goarch }} go build -v -trimpath \
+            -ldflags "-s -w -buildid=" \
+            -tags "$BUILD_TAGS" \
+            -o package/sing-box \
+            ./cmd/sing-box
+
+      - name: Bundle artifacts and systemd units
+        run: |
+          # Copy upstream service units
+          if [ -d "release/config" ]; then
+            cp release/config/sing-box.service package/ 2>/dev/null || true
+            cp release/config/sing-box@.service package/ 2>/dev/null || true
+          fi
+
+          # Archive package
+          cd package
+          tar -czvf ../sing-box-linux-${{ matrix.goarch }}.tar.gz *
+          cd ..
+          sha256sum sing-box-linux-${{ matrix.goarch }}.tar.gz > sing-box-linux-${{ matrix.goarch }}.tar.gz.sha256
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sing-box-${{ matrix.goarch }}
+          path: |
+            sing-box-linux-${{ matrix.goarch }}.tar.gz
+            sing-box-linux-${{ matrix.goarch }}.tar.gz.sha256
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "sing-box-lx Multi-Arch Release"
+          body: |
+            Automated multi-arch release of sing-box-lx.
+            Artifacts included:
+            - linux/arm64 (Raspberry Pi 4B)
+            - linux/amd64 (Desktop PC)
+          files: |
+            sing-box-linux-*.tar.gz
+            sing-box-linux-*.tar.gz.sha256

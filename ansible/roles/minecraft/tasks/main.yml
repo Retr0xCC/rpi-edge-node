@@ -1,0 +1,38 @@
+---
+- name: Ensure NAS backup destination directory exists
+  ansible.builtin.file:
+    path: "{{ mc_backup_destination }}"
+    state: directory
+  # Permissions on CIFS mounts are enforced by mount options; chmod fails with EPERM
+  # noqa: risky-file-permissions
+
+- name: Ensure Minecraft service directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: dietpi
+    group: dietpi
+    mode: '0775'
+  loop:
+    - "{{ mc_service_dir }}"
+    - "{{ mc_data_dir }}"
+
+- name: Deploy Minecraft compose and env configuration files
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ mc_service_dir }}/{{ item.dest }}"
+    owner: dietpi
+    group: dietpi
+    mode: '0600'
+  diff: false # Prevents decrypted vault secrets from leaking into terminal diff output
+  loop:
+    - { src: 'docker-compose.yml.j2', dest: 'docker-compose.yml' }
+    - { src: '.env.j2', dest: '.env' }
+    - { src: 'mc.env.j2', dest: 'mc.env' }
+    - { src: 'mc-backup.env.j2', dest: 'mc-backup.env' }
+  notify: Restart minecraft stack
+
+- name: Deploy and start Minecraft stack using Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ mc_service_dir }}"
+    state: present

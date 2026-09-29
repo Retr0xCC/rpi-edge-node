@@ -1,0 +1,20 @@
+# ========================================================
+# OpenSSH Hardened Drop-in Configuration (Managed by Ansible)
+# ========================================================
+
+
+Port {{ ssh_port }}
+AddressFamily {{ ssh_address_family }}
+ListenAddress {{ ssh_listen_address }}
+
+PermitRootLogin {{ ssh_permit_root_login }}
+PasswordAuthentication {{ ssh_password_authentication }}
+KbdInteractiveAuthentication {{ ssh_kbd_interactive_authentication }}
+UsePAM {{ ssh_use_pam }}
+PrintMotd {{ ssh_print_motd }}
+
+# Allow client to pass locale and color environment variables
+AcceptEnv LANG LC_* COLORTERM NO_COLOR
+
+# Subsystem configuration
+Subsystem sftp /usr/lib/openssh/sftp-server

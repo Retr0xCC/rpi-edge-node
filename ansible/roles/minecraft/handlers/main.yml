@@ -1,0 +1,5 @@
+---
+- name: Restart minecraft stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ mc_service_dir }}"
+    state: restarted

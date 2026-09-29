@@ -1,0 +1,28 @@
+---
+# Check if Docker binary is already present on the system
+- name: Check if Docker is already installed
+  ansible.builtin.command: which docker
+  register: docker_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false # Ensures check runs even in --check mode
+
+# On clean DietPi, use native software installer (ID 134 installs Docker + Compose plugin)
+- name: Install Docker and Docker Compose via DietPi software manager
+  ansible.builtin.command: /boot/dietpi/dietpi-software install 134
+  when: docker_installed.rc != 0
+  changed_when: true
+
+# Ensure non-root dietpi user has access to Docker socket
+- name: Ensure dietpi user is in the docker group
+  ansible.builtin.user:
+    name: dietpi
+    groups: docker
+    append: true
+
+# Ensure Docker daemon is enabled and active
+- name: Ensure Docker service is enabled and started
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true

@@ -1,0 +1,63 @@
+# ========================================================
+# Memory & ZRAM Tuning (JVM Garbage Collection & Low Latency)
+# ========================================================
+
+# Prioritize keeping active memory uncompressed, swap out stale background pages
+vm.swappiness = 10
+# Single page reading from ZRAM without readahead overhead
+vm.page-cluster = 0
+# Prevent kernel watermark spikes
+vm.watermark_boost_factor = 0
+# Cache filesystem directory structure in RAM (ideal for world chunks)
+vm.vfs_cache_pressure = 50
+
+# ========================================================
+# Storage & eMMC Protection (Smooth Dirty Page Flush)
+# ========================================================
+
+# Background writeout of dirty pages in frequent small batches
+vm.dirty_background_ratio = 5
+vm.dirty_ratio = 10
+# Dirty pages expire after 10 seconds
+vm.dirty_expire_centisecs = 1000
+vm.dirty_writeback_centisecs = 500
+
+# ========================================================
+# Network Congestion Control (BBR + Low Jitter)
+# ========================================================
+
+# Enable BBR and Fair Queuing scheduler
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+# Disable slow-start restart on idle connections
+net.ipv4.tcp_slow_start_after_idle = 0
+# Connection queue backlog for concurrent requests
+net.core.somaxconn = 1024
+net.ipv4.tcp_max_syn_backlog = 1024
+# Fast reuse of sockets in TIME_WAIT state
+net.ipv4.tcp_tw_reuse = 1
+
+# ========================================================
+# Gateway Packet Forwarding & Socket Buffers (sing-box & AmneziaWG)
+# ========================================================
+
+# Enable IPv4 and IPv6 packet forwarding
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+net.ipv4.conf.eth0.send_redirects = 0
+# Enable loose reverse path filtering to prevent dropping asymmetric packets
+net.ipv4.conf.all.rp_filter = 2
+net.ipv4.conf.default.rp_filter = 2
+net.ipv4.conf.eth0.rp_filter = 2
+net.ipv6.conf.all.forwarding = 1
+net.ipv6.conf.default.forwarding = 1
+net.ipv6.conf.eth0.forwarding = 1
+# Allow socket binding to non-local IPs (required for TPROXY)
+net.ipv4.ip_nonlocal_bind = 1
+net.ipv6.ip_nonlocal_bind = 1
+# Max buffer sizes (16MB) for routing high-throughput traffic
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.ipv4.tcp_rmem = 4096 87380 16777216
+net.ipv4.tcp_wmem = 4096 65536 16777216

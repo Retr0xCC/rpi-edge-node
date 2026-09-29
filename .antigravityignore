@@ -1,0 +1,72 @@
+# ========================================================
+# 1. Antigravity Security: Secret boundaries & Vault policy
+# ========================================================
+# Strict prohibition per AGENTS.MD: Never expose vault passwords
+**/.vault_pass*
+**/.vault-password*
+*.vault_password
+
+# Encrypted Vault files (AES-256 ciphertext carries zero semantic value
+# for LLM reasoning and burns thousands of context tokens)
+*vault.yml
+*vault.yaml
+ansible/group_vars/all/vault.yml
+
+# Plaintext secrets, private keys, certificates and env files
+*.key
+*.pem
+*.pfx
+*.p12
+*.crt
+id_rsa*
+id_ed25519*
+.env
+.env.*
+*.env
+!*.env.j2
+secrets/
+secrets.yml
+private/
+credentials/
+
+# ========================================================
+# 2. Context Window & Token Burn Optimization
+# ========================================================
+# Git internal database (huge pack files and commit history)
+.git/
+
+# Build artifacts, packages and binary archives
+build_output/
+package/
+dist/
+build/
+*.tar.gz
+*.sha256
+*.zip
+*.bin
+*.iso
+
+# Logs and runtime diagnostics
+*.log
+ansible.log
+
+# Caches and runtime dependencies
+.ansible/
+.cache/
+.ansible-lint
+.ansible-lint-cache/
+.yamllint.cache
+.molecule/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE and OS metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
