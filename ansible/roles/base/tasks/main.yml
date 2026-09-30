@@ -269,16 +269,41 @@
   when: ufw_enabled
   notify: Reload ufw
 
-- name: Configure NAT masquerade rules in UFW before.rules
+- name: Configure NAT masquerade and DNS hijack rules in UFW before.rules
   ansible.builtin.blockinfile:
     path: /etc/ufw/before.rules
     insertbefore: '^\*filter'
     marker: "# {mark} ANSIBLE MANAGED BLOCK: NAT rules"
     block: |
       *nat
+      :PREROUTING ACCEPT [0:0]
       :POSTROUTING ACCEPT [0:0]
+
+      # Transparent DNS interception for all transit clients (LAN & VPN)
+      -A PREROUTING ! -i lo -p udp --dport 53 -j REDIRECT --to-ports 53
+      -A PREROUTING ! -i lo -p tcp --dport 53 -j REDIRECT --to-ports 53
+
+      # NAT Masquerade
       -A POSTROUTING -s 192.168.0.0/16 ! -d 192.168.0.0/16 -o eth0 -j MASQUERADE
       -A POSTROUTING -s 10.9.9.0/24 -o eth0 -j MASQUERADE
+      COMMIT
+    state: present
+  when: ufw_enabled
+  notify: Reload ufw
+
+- name: Configure NAT DNS hijack rules in UFW before6.rules
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/before6.rules
+    insertbefore: '^\*filter'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: NAT rules (IPv6)"
+    block: |
+      *nat
+      :PREROUTING ACCEPT [0:0]
+      :POSTROUTING ACCEPT [0:0]
+
+      # Transparent DNS interception for all transit clients (IPv6)
+      -A PREROUTING ! -i lo -p udp --dport 53 -j REDIRECT --to-ports 53
+      -A PREROUTING ! -i lo -p tcp --dport 53 -j REDIRECT --to-ports 53
       COMMIT
     state: present
   when: ufw_enabled
