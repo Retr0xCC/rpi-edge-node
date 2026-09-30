@@ -111,13 +111,20 @@
     mode: '0755'
   when: smb_mount_enabled
 
+- name: Check if NAS share is currently mounted
+  ansible.builtin.command: mountpoint -q "{{ smb_mount_point }}"
+  register: base_nas_mount_check
+  failed_when: false
+  changed_when: false
+  when: smb_mount_enabled
+
 - name: Protect unmounted directory from writes (chattr +i)
   ansible.builtin.file:
     path: "{{ smb_mount_point }}"
     attributes: +i
   when:
     - smb_mount_enabled
-    - not (ansible_facts.mounts | default([]) | selectattr('mount', 'equalto', smb_mount_point) | list)
+    - base_nas_mount_check.rc != 0
 
 - name: Deploy secure SMB credentials file
   ansible.builtin.copy:
