@@ -65,7 +65,7 @@
 
 1. **Клонируйте репозиторий и перейдите в каталог Ansible:**
    ```bash
-   git clone https://github.com/example/rpi-edge-node.git
+   git clone https://github.com/Retr0defeated/rpi-edge-node.git
    cd rpi-edge-node/ansible
    ```
 

@@ -65,7 +65,7 @@
 
 1. **Clone the repository and enter the Ansible directory:**
    ```bash
-   git clone https://github.com/example/rpi-edge-node.git
+   git clone https://github.com/Retr0defeated/rpi-edge-node.git
    cd rpi-edge-node/ansible
    ```
 

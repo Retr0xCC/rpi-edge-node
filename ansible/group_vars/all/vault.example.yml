@@ -1,0 +1,143 @@
+---
+# ====================================================================
+# Encrypted Infrastructure & Application Secrets Template (Ansible Vault)
+#
+# Usage:
+#   1. Copy this template to vault.yml:
+#      cp group_vars/all/vault.example.yml group_vars/all/vault.yml
+#   2. Populate vault.yml with your real credentials and secrets.
+#   3. Encrypt the file using ansible-vault:
+#      ansible-vault encrypt group_vars/all/vault.yml
+# ====================================================================
+
+# --------------------------------------------------------------------
+# SMB / CIFS Storage Credentials & Topology
+# --------------------------------------------------------------------
+# IP or hostname of the SMB/NAS server
+vault_smb_server_ip: "192.168.1.100"
+
+# Share name exposed on the SMB server
+vault_smb_share_name: "Storage"
+
+# Username for CIFS mount authentication
+vault_smb_username: "smbuser"
+
+# Password for CIFS mount authentication
+vault_smb_password: "ChangeMeSmbPassword"
+
+# --------------------------------------------------------------------
+# DNS Resolvers & Domains
+# --------------------------------------------------------------------
+# Dedicated upstream DNS server deployed to /etc/resolv.conf
+vault_primary_dns_server: "192.168.1.1"
+
+# Local LAN DNS resolver tag in sing-box
+vault_singbox_dns_local: "192.168.1.1"
+
+# Smart / Alternative upstream DNS resolver tag in sing-box
+vault_singbox_dns_smart: "77.88.8.8"
+
+# Base domain name for internal routing and local domain rules
+vault_base_domain: "example.com"
+
+# --------------------------------------------------------------------
+# SSH Infrastructure & Remote Workstation
+# --------------------------------------------------------------------
+# List of authorized SSH public keys deployed to the dietpi user
+# yamllint disable rule:line-length
+vault_ssh_authorized_keys:
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEXAMPLEKEY0000000000000000000000000000000 user@workstation"
+# yamllint enable rule:line-length
+
+# Outbound SSH connection settings (Raspberry Pi -> Main PC)
+vault_main_pc_host_ip: "192.168.1.50"
+vault_main_pc_user: "username"
+
+# yamllint disable rule:line-length
+vault_main_pc_ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEXAMPLEKEY1111111111111111111111111111111 dietpi@edge-node"
+# yamllint enable rule:line-length
+
+vault_main_pc_ssh_private_key: |
+  -----BEGIN OPENSSH PRIVATE KEY-----
+  b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+  QyNTUxOQAAACD+EXAMPLEKEYPRIVATE000000000000000000000000000000000000000
+  AAAAMwAAAAtzc2gtZWQyNTUxOQAAACD+EXAMPLEKEYPRIVATE0000000000000000000000
+  0000000000000000AAAECQoi5813jeoaIduNIIE2ETGaFvQ/2rW9obs/j4IDoW9v6T6m6
+  G3TC9BABOQou2/o6Yb48dqkfOmhMpAeyb/RlPAAAADmRpZXRwaS1yZXRyb3BjAQIDBAUG
+  Bw==
+  -----END OPENSSH PRIVATE KEY-----
+
+# --------------------------------------------------------------------
+# Minecraft Server Credentials & World Topology
+# --------------------------------------------------------------------
+# RCON administration password
+vault_mc_rcon_password: "ChangeMeRconPassword"
+
+# Restic repository encryption password for automated backups
+vault_mc_restic_password: "ChangeMeResticPassword"
+
+# World generation seed
+vault_mc_seed: "123456789012345678"
+
+# Server MOTD (supports Minecraft color/format formatting codes)
+# yamllint disable rule:line-length
+vault_mc_motd: "\\u00a7aEdge Node Minecraft Server\\u00a7r"
+# yamllint enable rule:line-length
+
+# --------------------------------------------------------------------
+# AmneziaWG Gateway (Keys, Peers & DPI Obfuscation Parameters)
+# --------------------------------------------------------------------
+# Base64-encoded WireGuard/AmneziaWG private key for server interface
+vault_awg_server_private_key: "EXAMPLE_SERVER_PRIVATE_KEY_BASE64="
+
+# Obfuscation parameters (Shared secrets for DPI bypass)
+vault_awg_jc: 4
+vault_awg_jmin: 50
+vault_awg_jmax: 1000
+vault_awg_s1: 15
+vault_awg_s2: 25
+vault_awg_s3: 35
+vault_awg_s4: 45
+vault_awg_h1: "1000000000-1100000000"
+vault_awg_h2: "1200000000-1300000000"
+vault_awg_h3: "1400000000-1500000000"
+vault_awg_h4: "1600000000-1700000000"
+vault_awg_rekey_after_time: "60-120"
+vault_awg_rekey_timeout: "1-3"
+vault_awg_reject_after_time: "120-180"
+vault_awg_keepalive_timeout: "5-10"
+vault_awg_max_handshake_attempts: "2-4"
+vault_awg_content_padding_addition: "10-50"
+
+# Peer identity (e.g. mobile client)
+vault_awg_peer1_public_key: "EXAMPLE_PEER1_PUBLIC_KEY_BASE64="
+vault_awg_peer1_ip: "10.9.9.10/32"
+vault_awg_peer1_ipv6: "fd00:9:9::10/128"
+
+# --------------------------------------------------------------------
+# sing-box Outbound Proxies (Hysteria 2 & Cloudflare WARP/MASQUE)
+# --------------------------------------------------------------------
+# Hysteria 2 outbound
+vault_singbox_hy2_server: "hy2.example.com"
+vault_singbox_hy2_password: "ChangeMeHy2Password"
+vault_singbox_hy2_obfs_password: "ChangeMeHy2ObfsPassword"
+vault_singbox_hy2_server_name: "hy2.example.com"
+
+# Cloudflare MASQUE general endpoint
+vault_singbox_warp_endpoint_ip: "162.159.192.1"
+
+# Cloudflare MASQUE (proxy-warp)
+# yamllint disable rule:line-length
+vault_singbox_warp_proxy_privkey: "EXAMPLE_WARP_PROXY_PRIVATE_KEY_BASE64="
+vault_singbox_warp_proxy_pubkey: "EXAMPLE_WARP_PROXY_PUBLIC_KEY_BASE64="
+# yamllint enable rule:line-length
+vault_singbox_warp_proxy_ip: "100.96.0.2/32"
+vault_singbox_warp_proxy_ipv6: "2606:4700:cf1:1000::2/128"
+
+# Cloudflare MASQUE (direct-warp)
+# yamllint disable rule:line-length
+vault_singbox_warp_direct_privkey: "EXAMPLE_WARP_DIRECT_PRIVATE_KEY_BASE64="
+vault_singbox_warp_direct_pubkey: "EXAMPLE_WARP_DIRECT_PUBLIC_KEY_BASE64="
+# yamllint enable rule:line-length
+vault_singbox_warp_direct_ip: "100.96.0.4/32"
+vault_singbox_warp_direct_ipv6: "2606:4700:cf1:1000::4/128"
