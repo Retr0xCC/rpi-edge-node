@@ -34,8 +34,9 @@ vault_primary_dns_server: "192.168.1.1"
 # Local LAN DNS resolver tag in sing-box
 vault_singbox_dns_local: "192.168.1.1"
 
-# Smart / Alternative upstream DNS resolver tag in sing-box
-vault_singbox_dns_smart: "77.88.8.8"
+# Smart / Alternative upstream DNS resolver tag in sing-box (DoT endpoint & SNI)
+vault_singbox_dns_smart: "198.51.100.53"
+vault_singbox_dns_smart_domain: "dot.example.com"
 
 # Base domain name for internal routing and local domain rules
 vault_base_domain: "example.com"
