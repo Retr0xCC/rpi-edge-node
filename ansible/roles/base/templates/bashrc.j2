@@ -13,9 +13,20 @@ HISTCONTROL=ignoreboth
 # Append to the history file, don't overwrite it
 shopt -s histappend
 
+# Save multi-line commands as a single line in history
+shopt -s cmdhist
+
 # History length settings
-HISTSIZE=1000
-HISTFILESIZE=2000
+HISTSIZE=10000
+HISTFILESIZE=20000
+
+# Immediately append commands to history file upon execution
+if [[ "${PROMPT_COMMAND:-}" != *"history -a"* ]]; then
+    while [[ "${PROMPT_COMMAND:-}" =~ [[:space:]\;]$ ]]; do
+        PROMPT_COMMAND="${PROMPT_COMMAND%[[:space:]\;]}"
+    done
+    PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }history -a"
+fi
 
 # Check window size after each command and update LINES and COLUMNS
 shopt -s checkwinsize
@@ -63,8 +74,27 @@ if ! shopt -oq posix; then
     . /usr/share/bash-completion/bash_completion
   elif [ -f /etc/bash_completion ]; then
     . /etc/bash_completion
+  elif [ -d /usr/share/bash-completion/completions ]; then
+    # Fallback when bash-completion package is not yet installed: load systemd unit completions
+    for _comp in systemctl journalctl; do
+      [ -f "/usr/share/bash-completion/completions/$_comp" ] && . "/usr/share/bash-completion/completions/$_comp"
+    done
+    unset _comp
   fi
 fi
+
+# ========================================================
+# Prefix History Search (Native GNU Readline)
+# ========================================================
+# Search command history matching typed prefix using Up/Down arrow keys.
+# Uses native GNU Readline (compiled C inside bash): 0% CPU overhead, zero external
+# processes or daemons, instant response (optimized for Raspberry Pi).
+bind '"\e[A": history-search-backward' 2>/dev/null || true
+bind '"\e[B": history-search-forward' 2>/dev/null || true
+bind '"\eOA": history-search-backward' 2>/dev/null || true
+bind '"\eOB": history-search-forward' 2>/dev/null || true
+bind '"\e[5~": history-search-backward' 2>/dev/null || true
+bind '"\e[6~": history-search-forward' 2>/dev/null || true
 
 # ========================================================
 # Custom User Environment & Aliases

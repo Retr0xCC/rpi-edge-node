@@ -12,6 +12,31 @@
     name: "{{ base_packages }}"
     state: present
 
+- name: Ensure dbus system message bus service is started
+  ansible.builtin.systemd:
+    name: dbus
+    state: started
+
+- name: Patch journalctl completion to include all installed systemd units
+  ansible.builtin.replace:
+    path: /usr/share/bash-completion/completions/journalctl
+    regexp: 'comps=\$\(journalctl -F ''_SYSTEMD_UNIT'' 2>/dev/null\)'
+    replace: >-
+      comps=$( { journalctl -F '_SYSTEMD_UNIT' 2>/dev/null;
+      SYSTEMD_COLORS=0 systemctl list-unit-files "$cur*" --full --legend=no --no-pager --plain 2>/dev/null |
+      while read -r a b; do echo " $a"; done; } | sort -u )
+
+- name: Enable grouped short options unpacking in journalctl completion
+  ansible.builtin.blockinfile:
+    path: /usr/share/bash-completion/completions/journalctl
+    insertbefore: '^ +if __contains_word "\$prev" \$\{OPTS\[ARG\]\}'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: grouped short options"
+    block: |
+        # Unpack grouped short options (e.g. -fu -> -u, -efu -> -u)
+        if [[ "$prev" =~ ^-[a-zA-Z0-9]{2,}$ ]]; then
+            prev="-${prev:(-1)}"
+        fi
+
 # --------------------------------------------------------------------
 # 2. System Timezone Configuration
 # --------------------------------------------------------------------
@@ -209,15 +234,48 @@
     mode: '0600'
 
 # --------------------------------------------------------------------
-# 10. User Shell Environment (.bashrc)
+# 10. User Shell Environment (.bashrc & readline)
 # --------------------------------------------------------------------
-- name: Deploy custom .bashrc for dietpi user
+- name: Ensure dietpi user is member of systemd-journal and adm groups
+  ansible.builtin.user:
+    name: dietpi
+    groups:
+      - systemd-journal
+      - adm
+    append: true
+
+- name: Deploy custom .bashrc for dietpi and root users
   ansible.builtin.template:
     src: bashrc.j2
-    dest: /home/dietpi/.bashrc
-    owner: dietpi
-    group: dietpi
+    dest: "{{ item.dest }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
     mode: '0644'
+  loop:
+    - { dest: '/home/dietpi/.bashrc', owner: 'dietpi', group: 'dietpi' }
+    - { dest: '/root/.bashrc', owner: 'root', group: 'root' }
+
+- name: Configure system-wide prefix history search in /etc/inputrc
+  ansible.builtin.blockinfile:
+    path: /etc/inputrc
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: prefix history search"
+    block: |
+      # Arrow Up / Down search history matching current prefix
+      "\e[A": history-search-backward
+      "\e[B": history-search-forward
+      "\eOA": history-search-backward
+      "\eOB": history-search-forward
+      "\e[5~": history-search-backward
+      "\e[6~": history-search-forward
+
+      # Show completion matches immediately on single Tab press
+      set show-all-if-ambiguous on
+      set completion-ignore-case on
+    state: present
 
 # --------------------------------------------------------------------
 # 11. Firewall Configuration (UFW)

@@ -70,6 +70,8 @@ base_packages:
   - ca-certificates
   - systemd-timesyncd
   - python3-apt
+  - bash-completion
+  - dbus
 
 # Firewall (UFW) General Rules
 ufw_enabled: true
