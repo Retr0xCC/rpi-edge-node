@@ -40,7 +40,63 @@
     creates: /usr/bin/sing-box
 
 # --------------------------------------------------------------------
-# 3. Configuration & Systemd Service
+# 3. Proton Pre-processor & Variable Loading
+# --------------------------------------------------------------------
+- name: Check for raw Proton configs directory
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../tools/proton-parser/configs"
+  register: singbox_proton_raw_dir
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Find raw Proton .conf files
+  ansible.builtin.find:
+    paths: "{{ playbook_dir }}/../tools/proton-parser/configs"
+    recurse: true
+    patterns: "*.conf"
+  register: singbox_proton_conf_files
+  when: singbox_proton_raw_dir.stat.exists
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Parse Proton configs into vault_proton.yml via Go tool
+  ansible.builtin.command:
+    cmd: >
+      go run main.go
+      -i ./configs
+      -o {{ role_path }}/vars/vault_proton.yml
+      --encrypt
+    chdir: "{{ playbook_dir }}/../tools/proton-parser"
+  delegate_to: localhost
+  run_once: true
+  become: false
+  changed_when: true
+  when:
+    - singbox_proton_conf_files.matched is defined
+    - singbox_proton_conf_files.matched > 0
+
+- name: Check if vault_proton.yml exists
+  ansible.builtin.stat:
+    path: "{{ role_path }}/vars/vault_proton.yml"
+  register: singbox_vault_proton_file
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Include Proton vault variables if file exists
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/vars/vault_proton.yml"
+  when: singbox_vault_proton_file.stat.exists
+
+- name: Fallback empty proton_accounts fact if missing
+  ansible.builtin.set_fact:
+    singbox_proton_accounts: "{{ proton_accounts | default([]) }}"
+  when: singbox_proton_accounts is not defined
+
+# --------------------------------------------------------------------
+# 4. Configuration & Systemd Service
 # --------------------------------------------------------------------
 - name: Deploy sing-box config.json with syntax validation
   ansible.builtin.template:
