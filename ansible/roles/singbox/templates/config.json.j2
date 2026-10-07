@@ -1,3 +1,6 @@
+{% set _proton = singbox_proton_accounts | default(proton_accounts | default([])) %}
+{% set has_proton = (_proton is defined and _proton | length > 0) %}
+{% set proton_target = 'proton-balance-nl' if has_proton else 'proxy' %}
 {
   "log": {
     "level": "info",
@@ -17,13 +20,6 @@
         "server": "{{ singbox_dns_remote }}",
         "server_port": 53,
         "detour": "proxy"
-      },
-      {
-        "tag": "smart",
-        "type": "tls",
-        "server": "{{ vault_singbox_dns_smart }}",
-        "server_port": 853,
-        "tls": { "server_name": "{{ vault_singbox_dns_smart_domain }}" }
       }
     ],
     "rules": [
@@ -52,11 +48,8 @@
         "server": "local"
       },
       {
-        "rule_set": "geosite-google-gemini",
-        "server": "smart"
-      },
-      {
         "rule_set": [
+          "geosite-google",
           "geosite-ru-bundle",
           "geosite-spotify",
           "geosite-roblox",
@@ -71,6 +64,7 @@
       {
         "match_response": true,
         "rule_set": [
+          "geoip-google",
           "geoip-roblox",
           "geoip-telegram",
           "geoip-rknasnblock"
@@ -112,6 +106,36 @@
       "listen_port": 53
     }
   ],
+{% if has_proton %}
+  "endpoints": [
+{% for acc in _proton %}
+{% set acc_loop = loop %}
+{% for node in acc.nodes %}
+    {
+      "type": "wireguard",
+      "tag": "{{ node.tag }}",
+      "address": [
+        "{{ node.local_address }}"
+      ],
+      "private_key": "{{ node.private_key }}",
+      "peers": [
+        {
+          "address": "{{ node.server }}",
+          "port": {{ node.server_port }},
+          "public_key": "{{ node.peer_public_key }}",
+          "allowed_ips": [
+            "0.0.0.0/0",
+            "::/0"
+          ]
+        }
+      ],
+      "mtu": {{ node.mtu | default(1280) }},
+      "detour": "proxy"
+    }{{ "," if not (acc_loop.last and loop.last) }}
+{% endfor %}
+{% endfor %}
+  ],
+{% endif %}
   "outbounds": [
     {
       "type": "hysteria2",
@@ -166,6 +190,34 @@
       "ipv6": "{{ vault_singbox_warp_direct_ipv6 }}",
       "mtu": 1280
     },
+{% if has_proton %}
+{# --- Account-level Failover Groups (1 active peer per account) --- #}
+{% for acc in _proton %}
+    {
+      "type": "urltest",
+      "tag": "{{ acc.group_tag | default('proton-group-' ~ acc.name) }}",
+      "outbounds": [
+{% for node in acc.nodes %}
+        "{{ node.tag }}"{{ "," if not loop.last }}
+{% endfor %}
+      ],
+      "url": "https://cp.cloudflare.com/generate_204",
+      "interval": "3m",
+      "tolerance": 50
+    },
+{% endfor %}
+{# --- Top-level Load Balancer --- #}
+    {
+      "type": "urltest",
+      "tag": "proton-balance-nl",
+      "mode": "round_robin",
+      "outbounds": [
+{% for acc in _proton %}
+        "{{ acc.group_tag | default('proton-group-' ~ acc.name) }}"{{ "," if not loop.last }}
+{% endfor %}
+      ]
+    },
+{% endif %}
     {
       "type": "direct",
       "tag": "direct"
@@ -203,13 +255,11 @@
         "outbound": "proxy-warp"
       },
       {
-        "rule_set": "geosite-google-gemini",
-        "action": "resolve",
-        "server": "smart"
-      },
-      {
-        "rule_set": "geosite-google-gemini",
-        "outbound": "direct"
+        "rule_set": [
+          "geosite-google",
+          "geoip-google"
+        ],
+        "outbound": "{{ proton_target }}"
       },
       {
         "rule_set": [
@@ -248,9 +298,15 @@
       },
       {
         "type": "remote",
-        "tag": "geosite-google-gemini",
+        "tag": "geosite-google",
         "format": "binary",
-        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/geo/geosite/google-gemini.srs"
+        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/geo/geosite/google.srs"
+      },
+      {
+        "type": "remote",
+        "tag": "geoip-google",
+        "format": "binary",
+        "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/refs/heads/sing/geo/geoip/google.srs"
       },
       {
         "type": "remote",
