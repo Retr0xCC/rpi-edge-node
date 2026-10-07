@@ -69,6 +69,12 @@ When deploying configuration files containing sensitive credentials (e.g., [`con
 - Enforce strict file permissions: `mode: '0600'` (or `'0640'`).
 - Always set `diff: false` in `ansible.builtin.template` tasks to prevent decrypted secrets from leaking into Ansible execution logs.
 
+### 2.4. Proton WireGuard Pipeline & Vault Boundary
+- Raw `.conf` configurations downloaded from Proton VPN reside strictly in `tools/proton-parser/configs/` (must remain in `.gitignore`).
+- The generated output [`ansible/roles/singbox/vars/vault_proton.yml`](ansible/roles/singbox/vars/vault_proton.yml) contains live WireGuard private keys and **must always be encrypted via Ansible Vault** (generated with `--encrypt`).
+- The Ansible `singbox` role executes `tools/proton-parser` automatically with `--encrypt`. The Go tool auto-discovers `.vault_pass` across repository parent paths.
+- Reference templates ([`vault_proton.example.yml`](ansible/roles/singbox/vars/vault_proton.example.yml)) must only contain sanitized placeholders (`PRIVATE_KEY_HERE`, `PUBLIC_KEY_HERE`). Plaintext keys must never be committed.
+
 ---
 
 ## 3. Ansible Coding Standards & Linting
@@ -179,6 +185,13 @@ Because the Raspberry Pi operates as a multi-homed gateway (`eth0`, `tun0`, `awg
   -A ufw6-before-forward -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
   ```
 
+### 4.5. Proton VPN Outbound Topology & Failover
+- **Hierarchical Outbounds:** When Proton accounts are loaded via [`vault_proton.yml`](ansible/roles/singbox/vars/vault_proton.yml):
+  1. Each WireGuard endpoint is declared in `endpoints` with `detour: "proxy"` (routed via main proxy to bypass ISP SNI/protocol blocking).
+  2. Per-account failover groups (`urltest`) maintain 1 active node per Proton account (`proton-group-<account>`).
+  3. Top-level round-robin group `proton-balance-nl` balances connections across all account groups.
+- **Graceful Fallback:** If `singbox_proton_accounts` is empty or missing, targeted rules fallback to `proxy` directly. Legacy `smart` DoT DNS is deprecated and removed.
+
 ---
 
 ## 5. Git & Commit Conventions
@@ -201,6 +214,7 @@ All commits must strictly adhere to the **Conventional Commits** specification i
 ### 5.2. Standard Scopes (`scope`)
 - `gateway` — cross-cutting network routing, sysctl parameters, dual-stack changes.
 - `singbox` — proxy configuration, TUN inbound, DNS rules, outbounds.
+- `tools` — auxiliary CLI utilities and pre-processors (`tools/proton-parser`).
 - `amneziawg` — kernel interface, obfuscation settings, VPN peers.
 - `base` — system packages, sshd, zram swap, CIFS mounts, shell.
 - `ufw` — firewall rules, NAT masquerading, `before.rules`.

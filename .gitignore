@@ -105,3 +105,6 @@ build/
 *.tar.gz
 *.sha256
 *.egg-info/
+
+# Proton raw WireGuard configs inbox
+tools/proton-parser/configs/
