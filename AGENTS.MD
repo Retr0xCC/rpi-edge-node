@@ -188,8 +188,8 @@ Because the Raspberry Pi operates as a multi-homed gateway (`eth0`, `tun0`, `awg
 ### 4.5. Proton VPN Outbound Topology & Failover
 - **Hierarchical Outbounds:** When Proton accounts are loaded via [`vault_proton.yml`](ansible/roles/singbox/vars/vault_proton.yml):
   1. Each WireGuard endpoint is declared in `endpoints` with `detour: "proxy"` (routed via main proxy to bypass ISP SNI/protocol blocking).
-  2. Per-account failover groups (`urltest`) maintain 1 active node per Proton account (`proton-group-<account>`).
-  3. Top-level round-robin group `proton-balance-nl` balances connections across all account groups.
+  2. Per-account failover groups (`urltest`) maintain 1 active node per Proton account (`proton-group-<account>`) with anti-flapping parameters (`url: "https://cp.cloudflare.com/generate_204"`, `interval: "10m"`, `tolerance: 50`, `idle_timeout: "30m"`).
+  3. Specific routes target dedicated account groups directly (e.g. Google traffic routes to the first Proton account group). The legacy top-level round-robin balancer `proton-balance-nl` is omitted.
 - **Graceful Fallback:** If `singbox_proton_accounts` is empty or missing, targeted rules fallback to `proxy` directly. Legacy `smart` DoT DNS is deprecated and removed.
 
 ---

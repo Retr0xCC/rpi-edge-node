@@ -2,216 +2,314 @@
 
 # rpi-edge-node
 
-> Автоматизированный домашний Edge-шлюз на Raspberry Pi с sing-box и Ansible
+> Домашний L3-шлюз на базе Raspberry Pi с прозрачной маршрутизацией через sing-box и полной автоматизацией в Ansible
 
-[![Ansible](https://img.shields.io/badge/Ansible-2.15+-EE0000?style=flat-square&logo=ansible&logoColor=white)](https://www.ansible.com/)
-[![sing-box](https://img.shields.io/badge/sing--box-1.9+-000000?style=flat-square)](https://sing-box.sagernet.org/)
-[![Platform](https://img.shields.io/badge/DietPi-Debian%20Bookworm-blue?style=flat-square&logo=debian)](https://dietpi.com/)
-[![Architecture](https://img.shields.io/badge/Arch-ARM64-brightgreen?style=flat-square&logo=arm)](https://www.raspberrypi.com/)
-[![Security](https://img.shields.io/badge/Security-Ansible%20Vault-critical?style=flat-square)](https://docs.ansible.com/ansible/latest/vault_guide/index.html)
+[![Ansible](https://img.shields.io/badge/Ansible-2.15+-EE0000.svg?logo=ansible&logoColor=white)](https://www.ansible.com/)
+[![sing-box](https://img.shields.io/badge/sing--box-1.10+-black.svg)](https://sing-box.sagernet.org/)
+[![DietPi](https://img.shields.io/badge/DietPi-Debian%20Bookworm-blue.svg?logo=debian)](https://dietpi.com/)
+[![Platform](https://img.shields.io/badge/Platform-ARM64%20%7C%20RPi-brightgreen.svg?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/)
+[![Security: Vault](https://img.shields.io/badge/Security-Ansible%20Vault-red.svg)](https://docs.ansible.com/ansible/latest/vault_guide/index.html)
+[![Codeberg](https://img.shields.io/badge/Codeberg-Repository-2185D0?logo=codeberg&logoColor=white)](https://codeberg.org/Retr0defeated/rpi-edge-node)
+
+---
 
 ## Обзор
 
-**rpi-edge-node** автоматизирует развертывание и конфигурацию домашнего L3-шлюза на Raspberry Pi под управлением DietPi (Debian Bookworm ARM64). Проект настраивает sing-box в режиме TUN, VPN-сервер AmneziaWG для доступа удаленных клиентов, межсетевой экран UFW с поддержкой dual-stack и перехват DNS. Это обеспечивает прозрачную маршрутизацию, обход блокировок и интеграцию локальных сервисов для всех устройств сети без установки клиентских прокси-программ.
+Когда дома много устройств — компьютеры, смартфоны, телевизоры, умные приставки и консоли — настраивать прокси и VPN-клиенты на каждом из них неудобно, а на некоторых устройствах и вовсе невозможно.
 
-## Ключевые возможности
+**rpi-edge-node** превращает компактную Raspberry Pi под управлением DietPi (Debian 12 Bookworm ARM64) в единый выделенный сетевой шлюз. Достаточно указать IP-адрес платы в качестве основного шлюза на домашнем роутере или клиентах, и вся маршрутизация начинает работать прозрачно:
 
-- **Прозрачное проксирование через sing-box TUN:** перехват транзитного сетевого трафика через L3 TUN-интерфейс с прямым пропуском (bypass) адресов RFC 1918 и локальных сетей (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fd00::/8`, `fe80::/10`) для прямого доступа к локальным сервисам и обратным прокси (reverse proxy).
-- **Полный перехват DNS (IPv4/IPv6):** правила перенаправления `PREROUTING` в UFW перехватывают транзитные UDP/TCP-запросы на 53 порт и отправляют их во встроенный резолвер sing-box, предотвращая утечки DNS и игнорируя жестко заданные DNS на клиентах.
-- **Надежная dual-stack маршрутизация:** системные параметры sysctl настроены в режим `rp_filter = 2` (Loose mode), что предотвращает отбрасывание асимметричных пакетов между интерфейсами (`eth0`, `tun0`, `awg0`), а также используется TCP MSS clamping для предотвращения проблем с PMTU.
-- **Интеграция AmneziaWG / WireGuard:** высокопроизводительный VPN-сервер на уровне ядра с поддержкой параметров обфускации для безопасного подключения удаленных клиентов к домашней сети.
-- **Безопасное и идемпотентное монтирование SMB/CIFS:** подключение сетевого хранилища через `systemd-automount` с защитой точки монтирования неизменяемым атрибутом (`chattr +i`), предотвращающим заполнение корневого накопителя при недоступности NAS.
+* **Умное разделение трафика:** домашние сайты, банки и государственные сервисы открываются напрямую через провайдера на максимальной скорости. Заблокированные ресурсы идут через защищенный Hysteria 2 туннель, сервисы Google направляются через Proton VPN, а Spotify и специализированные форумы — через Cloudflare WARP (MASQUE).
+* **Перехват DNS и защита от утечек:** все DNS-запросы перехватываются на уровне фаервола шлюза. Даже если устройство жестко отправляет запросы на публичные `8.8.8.8`, шлюз безопасно перенаправляет их в свой внутренний резолвер sing-box, исключая утечки и блокировки на уровне провайдера.
+* **Удаленный доступ через AmneziaWG:** к домашней сети и всем ее сервисам можно безопасно подключиться из любой точки мира через защищенный VPN с продвинутой обфускацией трафика против систем ТСПУ / DPI.
+* **Надежное сетевое хранилище (NAS):** папка с сетевого накопителя подключается по протоколу SMB/CIFS автоматически через `systemd-automount` с защитой локального накопителя от переполнения.
+* **Развертывание одной командой:** вся конфигурация шлюза, пакеты, правила маршрутизации, тюнинг ядра и секреты разворачиваются через готовый playbook Ansible.
 
-## Архитектура сети
+---
 
-```text
-   [ LAN Clients ]                         [ Remote Clients ]
-(Workstations, Mobile, IoT)              (Connecting via AmneziaWG)
-             │                                       │
-             │ (eth0)                                │ (awg0)
-             ▼                                       ▼
-  ┌─────────────────────────────────────────────────────────────┐
-  │                  Raspberry Pi Edge Node                     │
-  │                                                             │
-  │   Ingress Interfaces (eth0 / awg0)                          │
-  │        │                                                    │
-  │   UFW Firewall (NAT PREROUTING: DNS Hijack :53)             │
-  │        │                                                    │
-  │   sing-box Core (tun0 & Routing Engine)                     │
-  │        ├── Local / Direct Traffic ─────────────┐            │
-  │        └── Proxied / Target Domains ───────┐   │            │
-  └────────────────────────────────────────────│───│────────────┘
-                                               │   │
-                   ┌───────────────────────────┘   │
-                   │ (Encrypted Proxy Tunnel)      │ (Direct Routing)
-                   ▼                               ▼
-          [ Remote VPS Server ]           [ Upstream Router ]
-        (Hysteria2 / Outbound)            (Physical Gateway / ISP)
-                   │                               │
-                   └───────────────┬───────────────┘
-                                   ▼
-                             [ Internet ]
-```
-
-## Структура проекта
+## Архитектура и модель маршрутизации
 
 ```text
-rpi-edge-node/
-├── ansible/
-│   ├── ansible.cfg                    # Параметры Ansible и пути поиска ролей
-│   ├── inventory.ini                  # Инвентарь целевого узла
-│   ├── site.yml                       # Основной playbook развертывания
-│   ├── group_vars/
-│   │   └── all/
-│   │       ├── vars.yml               # Общедоступные параметры инфраструктуры и сети
-│   │       ├── vault.example.yml      # Пример шаблона секретов
-│   │       └── vault.yml              # Зашифрованные через Ansible Vault учетные данные
-│   └── roles/
-│       ├── base/                      # Системные пакеты, sysctl, фаервол UFW и перехват DNS
-│       ├── singbox/                   # Прозрачный прокси, правила маршрутизации и DNS-резолвер
-│       │   ├── templates/
-│       │   │   └── config.json.j2     # Шаблон конфигурации sing-box
-│       │   └── vars/
-│       │       ├── vault_proton.example.yml  # Пример конфигурации узлов Proton WireGuard
-│       │       └── vault_proton.yml          # Зашифрованные эндпоинты Proton VPN
-│       ├── amneziawg/                 # Серверный эндпоинт AmneziaWG VPN
-│       ├── docker/                    # Контейнерная среда Docker
-│       └── minecraft/                 # Контейнеризированный сервер Minecraft
-└── tools/
-    └── proton-parser/                 # Go-утилита предобработки конфигов Proton WireGuard
-        ├── configs/                   # Игнорируемая Git входящая папка для .conf файлов
-        │   ├── <account1>/
-        │   │   ├── <node-1>.conf
-        │   │   └── <node-2>.conf
-        │   └── <account2>/
-        │       └── <node-3>.conf
-        ├── go.mod
-        ├── main.go
-        └── main_test.go
+ ┌─────────────────────────────────────────────────────────────┐
+ │                           Клиенты                           │
+ │                                                             │
+ │   - Локальная сеть (LAN): ПК, телефоны, Smart TV, консоли   │
+ │   - Удаленные клиенты: смартфоны и ноутбуки вне дома        │
+ └──────────────┬──────────────────────────────┬───────────────┘
+                │                              │
+                │ Ethernet (eth0)              │ AmneziaWG (awg0)
+                ▼                              ▼
+ ┌─────────────────────────────────────────────────────────────┐
+ │                  Raspberry Pi Edge Gateway                  │
+ │                                                             │
+ │   - Ядро Linux: IP Forwarding, BBR, rp_filter = 2, MSS Clamp│
+ │   - Межсетевой экран UFW: NAT PREROUTING (перехват DNS :53) │
+ │   - Внутренний DNS sing-box: dual-stack, кэширование        │
+ │   - Маршрутизация TUN (tun0):                               │
+ │       ├── Локальная сеть и спецдиапазоны ──► Direct         │
+ │       ├── Реклама (geosite-ads) ──────────► Блокировка      │
+ │       ├── ntc.party, Spotify ─────────────► direct-warp     │
+ │       ├── Google & Gemini ────────────────► proton-group-acc1
+ │       ├── Telegram, Roblox, Ru-bundle ────► proxy (Hy2)     │
+ │       └── Обычный трафик ─────────────────► Direct          │
+ └──────────────────────────────┬──────────────────────────────┘
+                                │
+                                │ Физический канал (eth0)
+                                ▼
+ ┌─────────────────────────────────────────────────────────────┐
+ │           Домашний роутер (Основной шлюз / Провайдер)       │
+ └──────────────┬──────────────────────────────┬───────────────┘
+                │                              │
+                │ Прямой выход (Direct)        │ Зашифрованные туннели
+                │ (в обход VPS / VPN)          │
+                │                              ▼
+                │               ┌──────────────────────────────┐
+                │               │    Узлы маршрутизации/VPN    │
+                │               │                              │
+                │               │ ├── Cloudflare Edge (WARP)   │
+                │               │ ├── Зарубежный VPS (Hy2)     │
+                │               │ └── Proton VPN (WireGuard)   │
+                │               └──────────────┬───────────────┘
+                │                              │
+                ▼                              ▼
+ ┌─────────────────────────────────────────────────────────────┐
+ │                          Интернет                           │
+ └─────────────────────────────────────────────────────────────┘
 ```
 
-## Быстрый старт
+### Ключевые механизмы работы
+
+* **Прозрачный перехват через TUN (sing-box):** Трафик захватывается сетевым интерфейсом `tun0`. Адреса локальных сетей (RFC 1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` и IPv6 ULA `fd00::/8`) исключены из захвата (`route_exclude_address`), что обеспечивает прямой доступ к роутеру, сетевым принтерам и домашним серверам.
+* **Перехват DNS и чистый Dual-Stack:** Конфликтный системный резолвер `systemd-resolved` полностью остановлен и замаскирован (`masked: true`). Все обращения на порт 53 перехватываются правилами `PREROUTING` в UFW и передаются в sing-box. Параметр `strategy` снят, благодаря чему DNS корректно работает в dual-stack режиме для доменов вроде `ntc.party`.
+* **Надежная маршрутизация ядра (sysctl):** Включен режим слабой фильтрации обратного пути `rp_filter = 2` (Loose mode), что устраняет сброс асимметричных пакетов между несколькими интерфейсами (`eth0`, `tun0`, `awg0`). Также активно правило TCP MSS Clamping, спасающее от проблем с фрагментацией пакетов (PMTU Blackhole) внутри VPN-туннелей.
+* **Отказоустойчивость Proton VPN и защита от дребезга (Anti-Flapping):**
+  Каждый аккаунт Proton настраивается в виде отдельной группы `urltest` (`proton-group-<account>`). Трафик Google целенаправленно отправляется на первый аккаунт. Группы защищены от постоянных переключений:
+  * `url`: легковесный эндпоинт `https://cp.cloudflare.com/generate_204`.
+  * `interval`: опрос раз в 10 минут, не перегружающий каналы.
+  * `tolerance`: запас в 50 мс (сервер переключается только при реальной деградации канала, а не случайных скачках пинга).
+  * `idle_timeout`: 30 минут (тесты засыпают, если туннелем никто не пользуется).
+  * Если аккаунты Proton не заданы, срабатывает безопасный фоллбэк на основной туннель `proxy`.
+* **Обфусцированный VPN AmneziaWG:** Сервер `awg0` на уровне ядра обеспечивает удаленный доступ. Протокол замаскирован случайными заголовками и мусорными пакетами (`Jc`, `Jmin`, `Jmax`, `S1`–`S4`, `H1`–`H4`), что защищает подключение от блокировок мобильными операторами и DPI.
+* **Безопасное монтирование хранилища SMB/CIFS:** Каталог `/storage/nas` монтируется через `systemd-automount` только в момент фактического обращения. В размонтированном состоянии на локальную папку наложен неизменяемый атрибут `chattr +i`, благодаря чему локальный диск Raspberry Pi никогда не переполнится, если NAS временно выключен.
+
+---
+
+## Быстрый старт: развертывание шлюза
 
 ### Предварительные требования
 
-- **Управляющая машина:** Ansible `>= 2.15` и Python 3.
-- **Целевой узел:** Raspberry Pi 4B (или совместимый ARM64 одноплатник) с DietPi (Debian 12 Bookworm).
-- **Доступ:** настроенный SSH-доступ по ключам с правами `sudo` без ввода пароля.
+* **Управляющий компьютер:** Linux или macOS с установленными Ansible `>= 2.15` и Python 3.
+* **Одноплатный компьютер:** Raspberry Pi 4B (или совместимый ARM64) со свежей чистой системой [DietPi](https://dietpi.com/) (Debian 12 Bookworm).
+* **Сетевой доступ:** настроенный SSH-доступ по ключу с беспарольным `sudo` для пользователя `dietpi` (или `root`).
 
-### Настройка конфигурации
+### Пошаговая установка
 
-1. **Клонируйте репозиторий и перейдите в каталог Ansible:**
+#### 1. Клонируйте репозиторий:
+
+```bash
+git clone https://codeberg.org/Retr0defeated/rpi-edge-node.git
+cd rpi-edge-node/ansible
+```
+
+#### 2. Создайте файл с секретами (`vault.yml`):
+
+Скопируйте шаблон и внесите ваши данные (пароли к VPS, приватные ключи VPN, доступы к NAS):
+
+```bash
+cp group_vars/all/vault.example.yml group_vars/all/vault.yml
+
+# Зашифруйте файл с помощью пароля Ansible Vault:
+ansible-vault encrypt group_vars/all/vault.yml
+```
+
+> [!TIP]
+> Чтобы не вводить пароль вручную при каждом запуске, сохраните пароль шифрования в файл `ansible/.vault_pass` (он добавлен в `.gitignore`) и укажите его в `ansible.cfg` или передавайте аргументом `--vault-password-file .vault_pass`.
+
+#### 3. Настройте ноды Proton VPN (Опционально):
+
+Если вы используете бесплатные или платные конфигурации Proton VPN:
+1. Поместите скачанные `.conf` файлы WireGuard по папкам аккаунтов в `tools/proton-parser/configs/`.
+2. Запустите автоматический генератор переменных:
    ```bash
-   git clone https://codeberg.org/Retr0defeated/rpi-edge-node.git
-   cd rpi-edge-node/ansible
+   cd ../tools/proton-parser
+   go run main.go --encrypt
+   cd ../ansible
    ```
+   Утилита автоматически создаст зашифрованный файл `roles/singbox/vars/vault_proton.yml`.
 
-2. **Настройте переменные с секретами:**
-   ```bash
-   cp group_vars/all/vault.example.yml group_vars/all/vault.yml
-   ansible-vault encrypt group_vars/all/vault.yml
-   ```
+#### 4. Проверьте инвентарь и параметры сети:
 
-3. **Настройте узлы Proton VPN (Опционально):**
-   Сгенерируйте `vault_proton.yml` автоматически через [конвейер Proton WireGuard](#конвейер-proton-wireguard-toolsproton-parser) или скопируйте файл-пример:
-   ```bash
-   cp roles/singbox/vars/vault_proton.example.yml roles/singbox/vars/vault_proton.yml
-   ansible-vault encrypt roles/singbox/vars/vault_proton.yml
-   ```
+Укажите IP-адрес или SSH-алиас вашей Raspberry Pi в файле `inventory.ini`:
 
-4. **Сконфигурируйте инвентарь и параметры сети:**
-   Проверьте и настройте `inventory.ini` (или `inventory/hosts.yml`) и `group_vars/all/vars.yml` под ваши подсети, IP-адрес шлюза и порты сервисов.
+```ini
+[gateway]
+rpi-node ansible_host=192.168.1.20 ansible_user=dietpi
+```
 
-### Развертывание
+Проверьте открытые сетевые параметры в `group_vars/all/vars.yml` (порты, подсети, таймзона).
 
-Запустите playbook на целевом узле:
+#### 5. Запустите развертывание:
 
 ```bash
 ansible-playbook -i inventory.ini site.yml --ask-vault-pass
 ```
 
-> Если используется файл инвентаря вроде `inventory/hosts.yml`, укажите флаг `-i inventory/hosts.yml`.
+После завершения работы плейбука перезагрузка не требуется — все службы запускаются сразу.
+
+---
+
+## Конфигурация и переменные
+
+Вся конфигурация разделена на открытые параметры инфраструктуры и зашифрованные секреты:
+
+### Открытые параметры (`ansible/group_vars/all/vars.yml`)
+
+| Переменная | Значение по умолчанию | Описание |
+| :--- | :--- | :--- |
+| `system_timezone` | `"Europe/Moscow"` | Часовой пояс системы. |
+| `smb_mount_enabled` | `true` | Включение автомонтирования сетевого диска SMB/CIFS. |
+| `smb_mount_point` | `"/storage/nas"` | Путь точки монтирования на Raspberry Pi. |
+| `ssh_port` | `22` | Порт службы OpenSSH. |
+| `singbox_dns_remote` | `"9.9.9.9"` | Публичный удаленный DNS-резолвер для заблокированных зон. |
+| `awg_interface_name` | `"awg0"` | Имя сетевого интерфейса AmneziaWG. |
+| `awg_listen_port` | `19302` | Входящий UDP-порт для клиентов AmneziaWG. |
+| `awg_subnet_cidr` | `"10.9.9.1/24"` | Внутренняя IPv4-подсеть для VPN-клиентов. |
+| `awg_ipv6_subnet_cidr` | `"fd00:9:9::1/64"` | Внутренняя IPv6-подсеть для VPN-клиентов. |
+| `mc_service_dir` | `"/opt/minecraft"` | Директория для контейнера игрового сервера Minecraft. |
+
+### Секретные параметры (`ansible/group_vars/all/vault.yml`)
+
+Файл создается на базе `vault.example.yml` и содержит:
+* `vault_smb_server_ip`, `vault_smb_share_name`, `vault_smb_username`, `vault_smb_password` — реквизиты доступа к домашнему NAS.
+* `vault_primary_dns_server` — локальный шлюз/роутер для `/etc/resolv.conf`.
+* `vault_singbox_dns_local` — адрес локального DNS в сети для разрешения внутренних доменов (`.lan`, `.local`, `.home`).
+* `vault_singbox_hy2_server`, `vault_singbox_hy2_password`, `vault_singbox_hy2_obfs_password` — параметры подключения к основному VPS (Hysteria 2).
+* `vault_singbox_warp_*` — ключи и эндпоинты Cloudflare MASQUE (WARP).
+* `vault_awg_server_private_key`, `vault_awg_jmin`, `vault_awg_h1`... — ключи и параметры обфускации сервера AmneziaWG.
+
+---
 
 ## Конвейер Proton WireGuard (`tools/proton-parser`)
 
-CLI-утилита `tools/proton-parser` автоматизирует извлечение и преобразование скачанных `.conf` файлов Proton VPN WireGuard в переменные Ansible для роли `singbox`.
+Консольная утилита на языке Go автоматизирует извлечение параметров из официальных `.conf` файлов Proton VPN WireGuard и компилирует их в готовый зашифрованный словарь Ansible Vault.
 
-### Структура входящих файлов
+### Структура каталога входящих файлов
 
-Разместите скачанные `.conf` файлы WireGuard по папкам соответствующих аккаунтов в `tools/proton-parser/configs/` (папка игнорируется Git):
+Поместите файлы конфигураций в подкаталоги с именами аккаунтов (папка `configs/` добавлена в `.gitignore`):
 
 ```text
 tools/proton-parser/configs/
-├── acc1/
-│   ├── nl-101.conf
-│   └── nl-102.conf
-└── acc2/
-    └── nl-201.conf
+├── account1/
+│   ├── wg-NL-FREE-101.conf
+│   └── wg-NL-FREE-102.conf
+└── account2/
+    ├── wg-NL-FREE-201.conf
+    └── wg-NL-FREE-202.conf
 ```
 
-### Использование
-
-Запустите утилиту из каталога инструмента или из корня репозитория:
+### Использование и команды CLI
 
 ```bash
 cd tools/proton-parser
 
-# Парсинг конфигов и генерация незашифрованного vault_proton.yml
+# 1. Обычный парсинг в открытый YAML (для проверки):
 go run main.go
 
-# Парсинг конфигов с автоматическим шифрованием через Ansible Vault (автообнаружение .vault_pass)
+# 2. Парсинг с автоматическим поиском .vault_pass и шифрованием:
 go run main.go --encrypt
 
-# Указание явного файла пароля или коротких флагов при необходимости
-go run main.go -e -p /path/to/.vault_pass
+# 3. Ручное указание путей и файла пароля:
+go run main.go -i ./configs -o ../../ansible/roles/singbox/vars/vault_proton.yml -e -p /path/to/.vault_pass
 ```
 
-Флаги CLI:
-* `-i, --in`: Путь к исходной папке с конфигурациями (по умолчанию: `./tools/proton-parser/configs` или `./configs`).
-* `-o, --out`: Путь назначения выходного YAML (по умолчанию: `./ansible/roles/singbox/vars/vault_proton.yml`).
-* `-e, --encrypt`: Шифрование файла на месте через `ansible-vault encrypt` (автоматически находит `.vault_pass` по дереву каталогов, если не передан явно).
-* `-p, --vault-pass-file, --vault-password-file`: Необязательный путь к файлу пароля Ansible Vault.
+#### Параметры утилиты
 
-### Схема конфигурации (`vault_proton.yml`)
+| Флаг | Короткий | Значение по умолчанию | Описание |
+| :--- | :--- | :--- | :--- |
+| `--in` | `-i` | `./tools/proton-parser/configs` | Путь к папке с исходными `.conf` файлами. |
+| `--out` | `-o` | `./ansible/roles/singbox/vars/vault_proton.yml` | Путь к итоговому YAML-файлу. |
+| `--encrypt` | `-e` | `false` | Зашифровать сгенерированный файл через `ansible-vault`. |
+| `--vault-pass-file` | `-p` | `""` | Путь к файлу с паролем шифрования (если не задан, ищется автоматически). |
 
-Сгенерированный файл соответствует следующей структуре:
-
-```yaml
 ---
-# Auto-generated by tools/proton-parser. DO NOT EDIT MANUALLY.
-singbox_proton_accounts:
-  - name: "acc1"
-    group_tag: "proton-group-acc1"
-    nodes:
-      - tag: "proton-acc1-nl-101"
-        server: "185.159.157.2"
-        server_port: 51820
-        local_address: "10.2.0.2/32"
-        private_key: "PRIVATE_KEY_HERE"
-        peer_public_key: "PUBLIC_KEY_HERE"
-        mtu: 1280
-      - tag: "proton-acc1-nl-102"
-        server: "185.159.157.3"
-        server_port: 51820
-        local_address: "10.2.0.2/32"
-        private_key: "PRIVATE_KEY_HERE"
-        peer_public_key: "PUBLIC_KEY_HERE"
-        mtu: 1280
-  - name: "acc2"
-    group_tag: "proton-group-acc2"
-    nodes:
-      - tag: "proton-acc2-nl-201"
-        server: "185.159.157.4"
-        server_port: 51820
-        local_address: "10.2.0.3/32"
-        private_key: "PRIVATE_KEY_HERE"
-        peer_public_key: "PUBLIC_KEY_HERE"
-        mtu: 1280
+
+## Проверка и диагностика
+
+После развертывания подключитесь к Raspberry Pi по SSH и выполните несколько быстрых тестов:
+
+```bash
+# 1. Проверка статуса сетевых интерфейсов:
+ip addr show tun0       # Интерфейс прозрачного прокси sing-box
+ip addr show awg0       # Серверный интерфейс AmneziaWG
+
+# 2. Проверка службы sing-box:
+systemctl status sing-box
+
+# 3. Просмотр актуальных логов маршрутизации в реальном времени:
+journalctl -u sing-box -f -n 50
+
+# 4. Проверка перехвата DNS:
+# Запрос к перехваченному домену должен вернуть корректный IP без задержек:
+dig @127.0.0.1 ntc.party
+dig @127.0.0.1 google.com
+
+# 5. Проверка внешнего исходящего IP:
+# Прямое подключение (через провайдера):
+curl -s https://api.ipify.org
+# Проверка доступности заблокированных сервисов через curl:
+curl -I https://www.google.com
+
+# 6. Проверка монтирования сетевого хранилища:
+ls -la /storage/nas
 ```
 
-## Безопасность и секреты
+---
 
-- **Шифрование секретов:** все чувствительные параметры (приватные ключи VPN, параметры обфускации, пароли к хранилищу и внутренние DNS-записи) зашифрованы через **Ansible Vault**.
-- **Защита от утечек в логи:** шаблоны конфигураций развертываются с правами `mode: '0600'` и директивой `diff: false`, исключающей попадание паролей в стандартный вывод Ansible.
-- **Защита файловой системы:** точка монтирования сетевого хранилища защищена атрибутом `chattr +i` в размонтированном состоянии, что гарантирует целостность локального накопителя при сбоях в сети или перезагрузке NAS.
+## Безопасность и отказоустойчивость
 
+- **Ansible Vault и сокрытие секретов:** Все пароли и приватные ключи шифруются. В задачах деплоя шаблонов выставлены `mode: '0600'` и директива `diff: false`, что исключает утечку секретов в логи CI/CD или консоли.
+- **Иммутабельная защита точки монтирования:** Локальная директория `/storage/nas` защищена атрибутом `chattr +i`. Если сетевой диск отключен, запись на локальный накопитель физически невозможна.
+- **Fail-Safe маршрутизация:** При временном отсутствии файлов Proton VPN конфигурация плавно переключает все завязанные маршруты на резервный outbound `proxy` без ошибок компиляции и падения демона.
+- **Защита от IP-флаппинга:** Гистерезис переключения в 50 мс и десятиминутный интервал проверок защищают от частой смены исходящего IP при кратковременных помехах на линии связи.
+
+---
+
+## Структура репозитория
+
+```text
+rpi-edge-node/
+├── ansible/
+│   ├── ansible.cfg                    # Глобальные параметры Ansible и пути поиска ролей
+│   ├── inventory.ini                  # Инвентарь целевого сетевого шлюза
+│   ├── site.yml                       # Главный плейбук развертывания системы
+│   ├── group_vars/
+│   │   └── all/
+│   │       ├── vars.yml               # Открытые параметры сети, сервисов и портов
+│   │       ├── vault.example.yml      # Пример шаблона секретов
+│   │       └── vault.yml              # Зашифрованные боевые учетные данные
+│   └── roles/
+│       ├── base/                      # Тюнинг ядра sysctl, UFW фаервол, перехват DNS, монтирование CIFS
+│       ├── singbox/                   # Конфигурация sing-box, правила маршрутизации, DNS
+│       │   ├── templates/
+│       │   │   ├── config.json.j2     # Jinja2-шаблон конфигурации sing-box
+│       │   │   ├── sing-box.service.j2# Юнит systemd для запуска демона
+│       │   │   └── update-sing-box-lx.sh.j2 # Скрипт автообновления бинарника
+│       │   └── vars/
+│       │       ├── vault_proton.example.yml # Образец переменных Proton
+│       │       └── vault_proton.yml   # Зашифрованные эндпоинты Proton VPN
+│       ├── amneziawg/                 # Установка ядра, ключей и конфигурации интерфейса awg0
+│       ├── docker/                    # Установка Docker и Docker Compose
+│       └── minecraft/                 # Контейнеризированный сервер Minecraft и Restic-бэкапы
+└── tools/
+    └── proton-parser/                 # Go-утилита для конвертации конфигов WireGuard
+        ├── configs/                   # Каталог для входящих .conf файлов (в .gitignore)
+        ├── go.mod
+        ├── main.go                    # Исходный код парсера и шифровальщика
+        └── main_test.go               # Модульные тесты утилиты
+```
+
+---
+
+## Лицензия
+
+Проект распространяется под свободной лицензией [MIT](LICENSE). Вы можете свободно использовать, модифицировать и адаптировать его под свои сетевые задачи.
