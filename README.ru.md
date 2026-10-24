@@ -8,7 +8,8 @@
 [![sing-box](https://img.shields.io/badge/sing--box-1.10+-black.svg)](https://sing-box.sagernet.org/)
 [![DietPi](https://img.shields.io/badge/DietPi-Debian%20Bookworm-blue.svg?logo=debian)](https://dietpi.com/)
 [![Platform](https://img.shields.io/badge/Platform-ARM64%20%7C%20RPi-brightgreen.svg?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/)
-[![Security: Vault](https://img.shields.io/badge/Security-Ansible%20Vault-red.svg)](https://docs.ansible.com/ansible/latest/vault_guide/index.html)
+[![Security: Vault](https://img.shields.io/badge/Security-Ansible%20Vault-red.svg)](https://docs.ansible.com/ansible/latest/vault_guide/index.html)<br>
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Codeberg](https://img.shields.io/badge/Codeberg-Main_Repo-2185D0?logo=codeberg&logoColor=white)](https://codeberg.org/Retr0xCC/rpi-edge-node)
 [![GitHub](https://img.shields.io/badge/GitHub-Mirror-181717?logo=github&logoColor=white)](https://github.com/Retr0xCC/rpi-edge-node)
 
