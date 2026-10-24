@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=none
 ---
 # Example configuration for Proton VPN WireGuard nodes
 # Copy to vault_proton.yml or generate using tools/proton-parser

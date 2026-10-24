@@ -108,3 +108,6 @@ build/
 
 # Proton raw WireGuard configs inbox
 tools/proton-parser/configs/
+
+# Dev Container Antigravity Sandbox (Isolated)
+.devcontainer/
