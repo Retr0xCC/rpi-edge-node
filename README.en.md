@@ -9,7 +9,8 @@
 [![DietPi](https://img.shields.io/badge/DietPi-Debian%20Bookworm-blue.svg?logo=debian)](https://dietpi.com/)
 [![Platform](https://img.shields.io/badge/Platform-ARM64%20%7C%20RPi-brightgreen.svg?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/)
 [![Security: Vault](https://img.shields.io/badge/Security-Ansible%20Vault-red.svg)](https://docs.ansible.com/ansible/latest/vault_guide/index.html)
-[![Codeberg](https://img.shields.io/badge/Codeberg-Repository-2185D0?logo=codeberg&logoColor=white)](https://codeberg.org/Retr0defeated/rpi-edge-node)
+[![Codeberg](https://img.shields.io/badge/Codeberg-Main_Repo-2185D0?logo=codeberg&logoColor=white)](https://codeberg.org/Retr0xCC/rpi-edge-node)
+[![GitHub](https://img.shields.io/badge/GitHub-Mirror-181717?logo=github&logoColor=white)](https://github.com/Retr0xCC/rpi-edge-node)
 
 ---
 
@@ -107,7 +108,7 @@ When a home network has many devices — workstations, laptops, phones, smart TV
 #### 1. Clone the repository:
 
 ```bash
-git clone https://codeberg.org/Retr0defeated/rpi-edge-node.git
+git clone https://codeberg.org/Retr0xCC/rpi-edge-node.git
 cd rpi-edge-node/ansible
 ```
 
