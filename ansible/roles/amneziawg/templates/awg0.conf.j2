@@ -23,12 +23,15 @@ H3 = {{ vault_awg_h3 }}
 H4 = {{ vault_awg_h4 }}
 
 # Timing & Handshake obfuscation
+HeaderProtectionKey = {{ vault_awg_header_protection_key }}
+ContentPaddingAddition = {{ vault_awg_content_padding_addition }}
+RandomTrailers = {{ vault_awg_random_trailers }}
+DisableCookies = {{ vault_awg_disable_cookies }}
 RekeyAfterTime = {{ vault_awg_rekey_after_time }}
 RekeyTimeout = {{ vault_awg_rekey_timeout }}
 RejectAfterTime = {{ vault_awg_reject_after_time }}
 KeepaliveTimeout = {{ vault_awg_keepalive_timeout }}
 MaxHandshakeAttempts = {{ vault_awg_max_handshake_attempts }}
-ContentPaddingAddition = {{ vault_awg_content_padding_addition }}
 
 [Peer]
 # Name = mobile-client
