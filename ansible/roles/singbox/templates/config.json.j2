@@ -1,6 +1,6 @@
 {% set _proton = singbox_proton_accounts | default(proton_accounts | default([])) %}
 {% set has_proton = (_proton is defined and _proton | length > 0) %}
-{% set proton_target = 'proton-balance-nl' if has_proton else 'proxy' %}
+{% set proton_first_account = (_proton[0].group_tag | default('proton-group-' ~ _proton[0].name)) if has_proton else 'proxy' %}
 {
   "log": {
     "level": "info",
@@ -74,7 +74,6 @@
     ],
     "optimistic": true,
     "cache_capacity": 4096,
-    "strategy": "ipv4_only",
     "final": "local"
   },
   "inbounds": [
@@ -202,21 +201,11 @@
 {% endfor %}
       ],
       "url": "https://cp.cloudflare.com/generate_204",
-      "interval": "3m",
-      "tolerance": 50
+      "interval": "10m",
+      "tolerance": 50,
+      "idle_timeout": "30m"
     },
 {% endfor %}
-{# --- Top-level Load Balancer --- #}
-    {
-      "type": "urltest",
-      "tag": "proton-balance-nl",
-      "mode": "round_robin",
-      "outbounds": [
-{% for acc in _proton %}
-        "{{ acc.group_tag | default('proton-group-' ~ acc.name) }}"{{ "," if not loop.last }}
-{% endfor %}
-      ]
-    },
 {% endif %}
     {
       "type": "direct",
@@ -248,18 +237,15 @@
       },
       {
         "domain_suffix": "ntc.party",
-        "outbound": "direct-warp"
-      },
-      {
         "rule_set": "geosite-spotify",
-        "outbound": "proxy-warp"
+        "outbound": "direct-warp"
       },
       {
         "rule_set": [
           "geosite-google",
           "geoip-google"
         ],
-        "outbound": "{{ proton_target }}"
+        "outbound": "{{ proton_first_account }}"
       },
       {
         "rule_set": [
