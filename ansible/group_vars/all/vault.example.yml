@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=none
 ---
 # ====================================================================
 # Encrypted Infrastructure & Application Secrets Template (Ansible Vault)
@@ -99,12 +100,15 @@ vault_awg_h1: "1000000000-1100000000"
 vault_awg_h2: "1200000000-1300000000"
 vault_awg_h3: "1400000000-1500000000"
 vault_awg_h4: "1600000000-1700000000"
+vault_awg_header_protection_key: "1234567890"
+vault_awg_random_trailers: 16
+vault_awg_disable_cookies: 1
+vault_awg_content_padding_addition: "10-50"
 vault_awg_rekey_after_time: "60-120"
 vault_awg_rekey_timeout: "1-3"
 vault_awg_reject_after_time: "120-180"
 vault_awg_keepalive_timeout: "5-10"
 vault_awg_max_handshake_attempts: "2-4"
-vault_awg_content_padding_addition: "10-50"
 
 # Peer identity (e.g. mobile client)
 vault_awg_peer1_public_key: "EXAMPLE_PEER1_PUBLIC_KEY_BASE64="
