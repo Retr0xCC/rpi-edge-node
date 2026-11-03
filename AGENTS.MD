@@ -29,6 +29,7 @@ The node is a dedicated Raspberry Pi 4B running **DietPi** (minimal Debian Bookw
 - **AmneziaWG VPN Subnet (`awg0`):** `10.9.9.0/24` (Gateway: `10.9.9.1/24`, IPv6: `fd00:9:9::1/64`, Listen Port: `19302/udp`).
 - **sing-box TUN Network (`tun0`):** `172.19.0.1/30` (IPv4) and `fdfe:dcba:9876::1/126` (IPv6).
 - **Static IPv6 on Gateway:** `fd00::1/64` on `eth0`.
+- **System IPv4 Precedence (`/etc/gai.conf`):** Because upstream ISP connectivity on `eth0` is IPv4-only and IPv6 is restricted to local ULA and VPN overlays, host-level IPv4 precedence is enforced via `/etc/gai.conf` (`precedence ::ffff:0:0/96 100`). This prevents glibc `getaddrinfo` from prioritizing unreachable global IPv6 routes.
 
 ### 1.3. Architecture & Interface Guardrails
 - **`eth0` is dynamically managed via DHCP:** Do **NOT** rewrite `/etc/network/interfaces` with manual static IPv4 routes, custom gateway directives, or destructive template overwrites. Overwriting this file will kill DHCP client negotiation and isolate the Raspberry Pi from the network permanently.
@@ -175,6 +176,7 @@ Because the Raspberry Pi operates as a multi-homed gateway (`eth0`, `tun0`, `awg
 - The `systemd-resolved` service **must remain permanently stopped, disabled, and masked** (`masked: true`) to avoid port 53 binding conflicts.
 - `/etc/resolv.conf` is maintained as a static file pointing to the primary upstream DNS resolver (`vault_primary_dns_server`).
 - Internal domain zones (`example.home`, `.home`, `.lan`, `.local` or `{{ vault_base_domain }}`) in sing-box must always route queries to the `local` DNS server (`vault_singbox_dns_local`).
+- **IPv4 DNS Resolution Strategy:** The sing-box DNS configuration enforces `"strategy": "prefer_ipv4"` in the root `dns` block, aligning sing-box's internal resolver with the host's `/etc/gai.conf` policy while avoiding deprecated outbound `domain_strategy` fields.
 
 ### 4.4. UFW, Packet Forwarding, and TCP MSS Clamping
 - The forwarding policy in `/etc/default/ufw` must be set to `DEFAULT_FORWARD_POLICY="ACCEPT"`, and UFW rules must specify `direction: routed, policy: allow`.

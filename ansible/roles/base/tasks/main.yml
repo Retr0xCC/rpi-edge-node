@@ -71,7 +71,7 @@
   changed_when: true
 
 # --------------------------------------------------------------------
-# 5. DNS Configuration (Exclusive upstream resolver)
+# 5. DNS & Address Resolution Configuration (/etc/resolv.conf & /etc/gai.conf)
 # --------------------------------------------------------------------
 - name: Stop, disable, and mask systemd-resolved to prevent port 53 conflicts
   ansible.builtin.systemd:
@@ -98,6 +98,17 @@
     content: |
       # Dedicated upstream DNS server managed by Ansible
       nameserver {{ vault_primary_dns_server }}
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Configure system-wide IPv4 precedence in /etc/gai.conf
+  ansible.builtin.lineinfile:
+    path: /etc/gai.conf
+    regexp: '^#?\s*precedence\s+::ffff:0:0/96\s+'
+    line: 'precedence ::ffff:0:0/96 100'
+    state: "{{ 'present' if (gai_prefer_ipv4 | default(true)) else 'absent' }}"
+    create: true
     owner: root
     group: root
     mode: '0644'

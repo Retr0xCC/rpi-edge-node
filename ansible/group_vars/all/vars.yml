@@ -7,6 +7,9 @@
 # System and Network Settings
 system_timezone: "Europe/Moscow"
 
+# Network and Name Resolution Settings (RFC 3484 / RFC 6724)
+gai_prefer_ipv4: true
+
 # Storage Mount Paths
 smb_mount_enabled: true
 smb_mount_point: "/storage/nas"
