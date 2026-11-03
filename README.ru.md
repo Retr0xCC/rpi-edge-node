@@ -184,8 +184,7 @@ ansible-playbook -i inventory.ini site.yml --ask-vault-pass
 
 Файл создается на базе `vault.example.yml` и содержит:
 * `vault_smb_server_ip`, `vault_smb_share_name`, `vault_smb_username`, `vault_smb_password` — реквизиты доступа к домашнему NAS.
-* `vault_primary_dns_server` — локальный шлюз/роутер для `/etc/resolv.conf`.
-* `vault_singbox_dns_local` — адрес локального DNS в сети для разрешения внутренних доменов (`.lan`, `.local`, `.home`).
+* `vault_singbox_dns_local` — адрес локального DNS/роутера для внутренних доменов (`.lan`, `.local`, `.home`) и резерва `/etc/resolv.conf`.
 * `vault_singbox_hy2_server`, `vault_singbox_hy2_password`, `vault_singbox_hy2_obfs_password` — параметры подключения к основному VPS (Hysteria 2).
 * `vault_singbox_warp_*` — ключи и эндпоинты Cloudflare MASQUE (WARP).
 * `vault_awg_server_private_key`, `vault_awg_jmin`, `vault_awg_h1`... — ключи и параметры обфускации сервера AmneziaWG.

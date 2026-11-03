@@ -29,10 +29,7 @@ vault_smb_password: "ChangeMeSmbPassword"
 # --------------------------------------------------------------------
 # DNS Resolvers & Domains
 # --------------------------------------------------------------------
-# Dedicated upstream DNS server deployed to /etc/resolv.conf
-vault_primary_dns_server: "192.168.1.1"
-
-# Local LAN DNS resolver tag in sing-box
+# Local LAN upstream DNS server (gateway/router) used by sing-box and fallback in /etc/resolv.conf
 vault_singbox_dns_local: "192.168.1.1"
 
 # Base domain name for internal routing and local domain rules

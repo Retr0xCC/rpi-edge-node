@@ -34,11 +34,6 @@
         "server": "local"
       },
       {
-        "query_type": ["AAAA"],
-        "action": "predefined",
-        "rcode": "NOERROR"
-      },
-      {
         "domain_suffix": [
           "{{ vault_base_domain }}",
           ".home",
@@ -46,6 +41,11 @@
           ".local"
         ],
         "server": "local"
+      },
+      {
+        "query_type": ["AAAA"],
+        "action": "predefined",
+        "rcode": "NOERROR"
       },
       {
         "rule_set": [

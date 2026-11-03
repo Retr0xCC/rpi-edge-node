@@ -174,7 +174,7 @@ Because the Raspberry Pi operates as a multi-homed gateway (`eth0`, `tun0`, `awg
   }
   ```
 - The `systemd-resolved` service **must remain permanently stopped, disabled, and masked** (`masked: true`) to avoid port 53 binding conflicts.
-- `/etc/resolv.conf` is maintained as a static file pointing to the primary upstream DNS resolver (`vault_primary_dns_server`).
+- `/etc/resolv.conf` is maintained as a static file pointing to the local sing-box resolver (`127.0.0.1`) with upstream fallback to `vault_singbox_dns_local`.
 - Internal domain zones (`example.home`, `.home`, `.lan`, `.local` or `{{ vault_base_domain }}`) in sing-box must always route queries to the `local` DNS server (`vault_singbox_dns_local`).
 - **IPv4 DNS Resolution Strategy:** The sing-box DNS configuration enforces `"strategy": "prefer_ipv4"` in the root `dns` block, aligning sing-box's internal resolver with the host's `/etc/gai.conf` policy while avoiding deprecated outbound `domain_strategy` fields.
 

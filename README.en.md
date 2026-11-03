@@ -184,8 +184,7 @@ Configuration is organized into public infrastructure variables and encrypted se
 
 Populated from `vault.example.yml`:
 * `vault_smb_server_ip`, `vault_smb_share_name`, `vault_smb_username`, `vault_smb_password` — NAS credentials.
-* `vault_primary_dns_server` — Gateway DNS address for `/etc/resolv.conf`.
-* `vault_singbox_dns_local` — Local network DNS for internal domain resolution (`.lan`, `.local`, `.home`).
+* `vault_singbox_dns_local` — Local network DNS/router for internal domain resolution (`.lan`, `.local`, `.home`) and `/etc/resolv.conf` fallback.
 * `vault_singbox_hy2_server`, `vault_singbox_hy2_password`, `vault_singbox_hy2_obfs_password` — Primary Hysteria 2 proxy server settings.
 * `vault_singbox_warp_*` — Cloudflare MASQUE (WARP) credentials and endpoints.
 * `vault_awg_server_private_key`, `vault_awg_jmin`, `vault_awg_h1`... — AmneziaWG obfuscation parameters and private keys.
