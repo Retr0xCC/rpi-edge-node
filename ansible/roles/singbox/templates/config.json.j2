@@ -201,10 +201,11 @@
         "{{ node.tag }}"{{ "," if not loop.last }}
 {% endfor %}
       ],
-      "url": "https://cp.cloudflare.com/generate_204",
-      "interval": "10m",
-      "tolerance": 50,
-      "idle_timeout": "30m"
+      "url": "{{ singbox_proton_urltest_url | default('https://www.gstatic.com/generate_204') }}",
+      "interval": "{{ singbox_proton_urltest_interval | default('1m') }}",
+      "tolerance": {{ singbox_proton_urltest_tolerance | default(50) }},
+      "idle_timeout": "{{ singbox_proton_urltest_idle_timeout | default('30m') }}",
+      "interrupt_exist_connections": {{ "true" if (singbox_proton_urltest_interrupt_exist_connections | default(true)) else "false" }}
     },
 {% endfor %}
 {% endif %}

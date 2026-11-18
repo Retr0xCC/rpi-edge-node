@@ -84,12 +84,13 @@ When a home network has many devices — workstations, laptops, phones, smart TV
 * **Transparent Capture via TUN (sing-box):** Inbound transit traffic is captured on the `tun0` interface. RFC 1918 private subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) and IPv6 ULA (`fd00::/8`) are explicitly bypassed (`route_exclude_address`), preserving direct connectivity to LAN servers, printers, and reverse proxies.
 * **System-Wide IPv4 Precedence & DNS Hijacking:** Operating system name resolution enforces IPv4 priority via `/etc/gai.conf` (`precedence ::ffff:0:0/96 100`), preventing glibc `getaddrinfo` delays to dual-stack external services in the absence of an upstream global IPv6 default route. Conflicting `systemd-resolved` is masked and disabled permanently. All transit UDP/TCP port 53 traffic is redirected into sing-box via UFW `PREROUTING` rules, with sing-box DNS configured with `strategy: "prefer_ipv4"`.
 * **Kernel Sysctl Hardening:** Loose reverse path filtering (`rp_filter = 2`) is enforced across all interfaces (`eth0`, `tun0`, `awg0`), preventing asymmetric routing packet drops. TCP MSS Clamping ensures packets traverse VPN tunnels without PMTU blackholes.
-* **Proton VPN Outbounds & Anti-Flapping:**
-  Each Proton account operates as an isolated `urltest` failover group (`proton-group-<account>`). Google traffic is directed to the primary account. To avoid unnecessary reconnections:
-  * `url`: Lightweight probe endpoint `https://cp.cloudflare.com/generate_204`.
-  * `interval`: Tested every 10 minutes to avoid channel saturation.
+* **Proton VPN Outbounds & Channel Switching:**
+  Each Proton account operates as an isolated `urltest` failover group (`proton-group-<account>`). Google traffic is directed to the primary account. Channel switching and health check parameters:
+  * `url`: Google service reachability probe endpoint `https://www.gstatic.com/generate_204`.
+  * `interval`: Tested every 1 minute (`1m` by default) to rapidly detect degraded or blocked nodes.
   * `tolerance`: 50 ms latency tolerance buffer (switches only on genuine link degradation).
   * `idle_timeout`: 30 minutes (suspends health checks when traffic is idle).
+  * `interrupt_exist_connections`: `true` (abruptly closes stale sessions upon failover to prevent hanging HTTP/2 Google connections without restarting sing-box).
   * Graceful fallback: defaults to `proxy` if no Proton accounts are configured.
 * **Obfuscated AmneziaWG VPN:** An in-kernel WireGuard endpoint (`awg0`) accepts remote client connections. Traffic is protected with junk packet insertion and handshake obfuscation (`Jc`, `Jmin`, `Jmax`, `S1`–`S4`, `H1`–`H4`) to bypass mobile carrier DPI blocks.
 * **Safe SMB/CIFS Automounting:** Remote storage at `/storage/nas` is managed by `systemd-automount`. When unmounted, the directory has the immutable attribute set (`chattr +i`), ensuring the SD card is never accidentally written to if the NAS is unreachable.

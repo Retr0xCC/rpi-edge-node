@@ -127,3 +127,10 @@ awg_mtu: 1280
 
 # sing-box Public Resolvers
 singbox_dns_remote: "9.9.9.9"
+
+# sing-box Proton VPN Failover & Health Check (urltest)
+singbox_proton_urltest_url: "https://www.gstatic.com/generate_204"
+singbox_proton_urltest_interval: "1m"
+singbox_proton_urltest_tolerance: 50
+singbox_proton_urltest_idle_timeout: "30m"
+singbox_proton_urltest_interrupt_exist_connections: true
