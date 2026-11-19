@@ -51,7 +51,7 @@ When a home network has many devices — workstations, laptops, phones, smart TV
  │       ├── Private Subnets (RFC 1918) ─────► Direct          │
  │       ├── Ad Domains (geosite-ads) ───────► Reject (Drop)   │
  │       ├── ntc.party, Spotify ─────────────► direct-warp     │
- │       ├── Google & Gemini ────────────────► proton-group-acc1
+ │       ├── Google & Gemini ────────────────► account1        │
  │       ├── Blocked / Telegram / Ru-bundle ─► proxy (Hy2)     │
  │       └── General Internet Traffic ───────► Direct          │
  └──────────────────────────────┬──────────────────────────────┘
@@ -85,7 +85,7 @@ When a home network has many devices — workstations, laptops, phones, smart TV
 * **System-Wide IPv4 Precedence & DNS Hijacking:** Operating system name resolution enforces IPv4 priority via `/etc/gai.conf` (`precedence ::ffff:0:0/96 100`), preventing glibc `getaddrinfo` delays to dual-stack external services in the absence of an upstream global IPv6 default route. Conflicting `systemd-resolved` is masked and disabled permanently. All transit UDP/TCP port 53 traffic is redirected into sing-box via UFW `PREROUTING` rules, with sing-box DNS configured with `strategy: "prefer_ipv4"`.
 * **Kernel Sysctl Hardening:** Loose reverse path filtering (`rp_filter = 2`) is enforced across all interfaces (`eth0`, `tun0`, `awg0`), preventing asymmetric routing packet drops. TCP MSS Clamping ensures packets traverse VPN tunnels without PMTU blackholes.
 * **Proton VPN Outbounds & Channel Switching:**
-  Each Proton account operates as an isolated `urltest` failover group (`proton-group-<account>`). Google traffic is directed to the primary account. Channel switching and health check parameters:
+  Each Proton account operates as an isolated `urltest` failover group named after the account directory (`<account>`, e.g. `account1`). Google traffic is directed to `account1`. Channel switching and health check parameters:
   * `url`: Google service reachability probe endpoint `https://www.gstatic.com/generate_204`.
   * `interval`: Tested every 1 minute (`1m` by default) to rapidly detect degraded or blocked nodes.
   * `tolerance`: 50 ms latency tolerance buffer (switches only on genuine link degradation).

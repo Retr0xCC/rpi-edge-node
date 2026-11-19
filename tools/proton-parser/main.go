@@ -30,9 +30,8 @@ type Node struct {
 
 // Account represents a Proton account containing multiple VPN nodes.
 type Account struct {
-	Name     string `yaml:"name"`
-	GroupTag string `yaml:"group_tag"`
-	Nodes    []Node `yaml:"nodes"`
+	Name  string `yaml:"name"`
+	Nodes []Node `yaml:"nodes"`
 }
 
 // Config represents the root structure of the generated Ansible vault_proton.yml.
@@ -347,9 +346,8 @@ func processConfigs(inDir string) (*Config, error) {
 		}
 
 		cfg.SingboxProtonAccounts = append(cfg.SingboxProtonAccounts, Account{
-			Name:     accName,
-			GroupTag: fmt.Sprintf("proton-group-%s", accName),
-			Nodes:    nodes,
+			Name:  accName,
+			Nodes: nodes,
 		})
 	}
 
